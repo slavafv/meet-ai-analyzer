@@ -1,0 +1,9 @@
+{
+  "name": "streamlit_audio_recorder",
+  "main": "streamlit_audio_recorder/frontend/build",
+  "streamlit": {
+    "component": {
+      "frontend_module": "streamlit_audio_recorder/frontend/build"
+    }
+  }
+}

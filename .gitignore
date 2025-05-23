@@ -1,3 +1,5 @@
 .streamlit/secrets.toml
 .env
 temp_audio_file
+.python-version
+venv
