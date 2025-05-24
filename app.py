@@ -272,7 +272,14 @@ elif mode == "Записать звук":
             recording_placeholder = st.empty()
             recording_time = 0
             while ctx.state.playing:
-                recording_placeholder.warning(f"Идёт запись... {recording_time:.1f} сек")
+                hours, remainder = divmod(int(recording_time), 3600)
+                minutes, seconds = divmod(remainder, 60)
+                if hours > 0:
+                    recording_placeholder.warning(f"Идёт запись... {hours} ч {minutes} мин {seconds} сек")
+                elif minutes > 0:
+                    recording_placeholder.warning(f"Идёт запись... {minutes} мин {seconds} сек")
+                else:
+                    recording_placeholder.warning(f"Идёт запись... {seconds} сек")
                 time.sleep(0.1)
                 recording_time += 0.1
             
@@ -299,7 +306,16 @@ elif mode == "Записать звук":
                     audio_segment = AudioSegment.from_wav(audio_path)
                     duration = len(audio_segment) / 1000.0  # Convert from ms to seconds
                     
-                    st.success(f"Аудио записано! Длительность: {duration:.1f} сек")
+                    hours, remainder = divmod(int(duration), 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    if hours > 0:
+                        duration_str = f"{hours} ч {minutes} мин {seconds} сек"
+                    elif minutes > 0:
+                        duration_str = f"{minutes} мин {seconds} сек"
+                    else:
+                        duration_str = f"{seconds} сек"
+
+                    st.success(f"Аудио записано! Длительность: {duration_str}")
                     
                     # Add download button with proper extension
                     with open(audio_path, 'rb') as f:
