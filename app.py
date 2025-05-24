@@ -123,7 +123,13 @@ def transcribe_speechmatics(path_to_audio, language="ru"):
     conf = {
         "type": "transcription",
         "transcription_config": {
-            "language": language
+            "language": language,
+            "diarization": "speaker",
+            "enable_entities": True,
+            # "diarization_config": {
+            #     "speaker_labels": True,
+            #     "speaker_labels_timeout": 10,
+            # }
         }
     }
 
@@ -157,7 +163,7 @@ def summarize_groq(text):
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "llama-3b-chat",
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
         "messages": [
             {"role": "user", "content": f"Сделай краткое саммари этого текста:\n\n{text}"}
         ],
@@ -315,7 +321,7 @@ elif mode == "Записать звук":
                     st.session_state.last_recording_path = audio_path
                     
                     # Clear the recorded frames
-                    st.session_state.audio_recorder.state.clear_frames()
+                    # st.session_state.audio_recorder.state.clear_frames()
                 except Exception as e:
                     st.error(f"Ошибка при сохранении аудио: {str(e)}")
                     logger.error(f"Error saving audio: {e}")
