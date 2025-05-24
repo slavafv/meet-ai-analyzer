@@ -50,7 +50,20 @@ class AudioState:
             self.audio_frames.clear()
             logger.info("Cleared all frames")
 
-def save_as_wav(audio_data: np.ndarray, sample_rate: int) -> str:
+# def save_as_wav(audio_data: np.ndarray, sample_rate: int) -> str:
+#     if len(audio_data.shape) > 1:
+#         audio_data = audio_data.reshape(-1)
+#     audio_segment = AudioSegment(
+#         audio_data.tobytes(),
+#         frame_rate=sample_rate,
+#         sample_width=2,
+#         channels=1
+#     )
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
+#         audio_segment.export(wav_file.name, format="wav")
+#         return wav_file.name
+
+def save_as_mp3(audio_data: np.ndarray, sample_rate: int, bitrate="64k") -> str:
     if len(audio_data.shape) > 1:
         audio_data = audio_data.reshape(-1)
     audio_segment = AudioSegment(
@@ -59,56 +72,9 @@ def save_as_wav(audio_data: np.ndarray, sample_rate: int) -> str:
         sample_width=2,
         channels=1
     )
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
-        audio_segment.export(wav_file.name, format="wav")
-        return wav_file.name
-
-def save_as_mp3(audio_data: np.ndarray, sample_rate: int) -> str:
-    try:
-        if len(audio_data.shape) > 1:
-            audio_data = audio_data.reshape(-1)
-        audio_segment = AudioSegment(
-            audio_data.tobytes(),
-            frame_rate=sample_rate,
-            sample_width=2,
-            channels=1
-        )
-        # Сначала экспортируем во временный WAV
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
-            audio_segment.export(wav_file.name, format="wav")
-            wav_path = wav_file.name
-
-        # Теперь конвертируем WAV в MP3
-        audio_segment = AudioSegment.from_wav(wav_path)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as mp3_file:
-            audio_segment.export(
-                mp3_file.name,
-                format="mp3",
-                parameters=["-ar", str(sample_rate), "-ac", "1", "-b:a", "192k"]
-            )
-            mp3_path = mp3_file.name
-
-        # Удаляем временный WAV
-        os.remove(wav_path)
-        return mp3_path
-    except Exception as e:
-        logger.error(f"Error saving MP3: {e}")
-        raise
-
-def resample_audio(audio_data: np.ndarray, from_rate: int, to_rate: int) -> np.ndarray:
-    if from_rate == to_rate:
-        return audio_data
-    if len(audio_data.shape) > 1:
-        audio_data = audio_data.reshape(-1)
-    audio_data = audio_data.astype(np.int16)
-    audio_segment = AudioSegment(
-        audio_data.tobytes(),
-        frame_rate=from_rate,
-        sample_width=2,
-        channels=1
-    )
-    audio_segment = audio_segment.set_frame_rate(to_rate)
-    return np.array(audio_segment.get_array_of_samples())
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as mp3_file:
+        audio_segment.export(mp3_file.name, format="mp3", bitrate=bitrate)
+        return mp3_file.name
 
 # --- Транскрибация через Speechmatics ---
 def transcribe_speechmatics(path_to_audio, language="ru"):
@@ -300,10 +266,10 @@ elif mode == "Записать звук":
 
                     # Важно! WebRTC отдаёт аудиоданные, которые нужно сохранять с sample_rate в 2 раза больше,
                     # иначе звук будет медленнее и ниже. Это особенность работы streamlit-webrtc.
-                    audio_path = save_as_wav(audio_data, real_sample_rate * 2)
+                    audio_path = save_as_mp3(audio_data, real_sample_rate * 2, bitrate="64k")
                     
                     # Calculate duration based on the final MP3 file
-                    audio_segment = AudioSegment.from_wav(audio_path)
+                    audio_segment = AudioSegment.from_file(audio_path)
                     duration = len(audio_segment) / 1000.0  # Convert from ms to seconds
                     
                     hours, remainder = divmod(int(duration), 3600)
@@ -321,10 +287,10 @@ elif mode == "Записать звук":
                     with open(audio_path, 'rb') as f:
                         audio_bytes = f.read()
                         st.download_button(
-                            label="Скачать WAV",
+                            label="Скачать MP3",
                             data=audio_bytes,
-                            file_name="recording.wav",
-                            mime="audio/wav"
+                            file_name="recording.mp3",
+                            mime="audio/mp3"
                         )
                     
                     # Display audio player
