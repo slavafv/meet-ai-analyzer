@@ -146,7 +146,6 @@ def summarize_groq(text):
 # --- UI Streamlit ---
 st.title("Транскрибация + Саммари митинга")
 
-language = st.selectbox("Выберите язык", options=["ru", "en"], index=0)
 mode = st.radio("Выберите способ ввода", ["Записать звук", "Загрузить файл"])
 
 audio_path = None
@@ -166,7 +165,6 @@ if mode == "Загрузить файл":
 
 elif mode == "Записать звук":
     st.info("Нажмите 'Start' для начала записи, 'Stop' — для окончания.")
-    
     input_type = st.radio(
         "Выберите источник звука",
         ["Микрофон", "Линейный вход"],
@@ -324,41 +322,82 @@ elif mode == "Записать звук":
             else:
                 st.warning("Нет записанных данных. Попробуйте записать снова.")
 
-# --- Запуск транскрибации ---
-if (audio_path or getattr(st.session_state, 'last_recording_path', None)) and st.button("Транскрибировать и сделать саммари"):
-    try:
-        # Use the last recording path if audio_path is not set
-        final_audio_path = audio_path or st.session_state.last_recording_path
-        
-        with st.spinner("Транскрибация..."):
-            if SPEECHMATICS_API_KEY is None or SPEECHMATICS_ENDPOINT is None:
-                st.error("Отсутствует API ключ или эндпоинт Speechmatics!")
-            else:
-                transcript = transcribe_speechmatics(final_audio_path, language=language)
-                if transcript:
-                    st.subheader("Транскрипт")
-                    st.text_area("Текст транскрипции", transcript, height=300)
-                    
-                    if GROQ_API_KEY is None or GROQ_ENDPOINT is None:
-                        st.error("Отсутствует API ключ или эндпоинт Groq!")
-                    else:
-                        with st.spinner("Генерируем саммари..."):
-                            summary = summarize_groq(transcript)
-                            
-                            if summary:
-                                st.subheader("Саммари")
-                                st.text_area("Краткое содержание", summary, height=200)
-                                
-                                # Convert to string if needed
-                                transcript_str = str(transcript) if not isinstance(transcript, str) else transcript
-                                summary_str = str(summary) if not isinstance(summary, str) else summary
-                                
-                                st.download_button("Скачать транскрипт", transcript_str, file_name="transcript.txt")
-                                st.download_button("Скачать саммари", summary_str, file_name="summary.txt")
+# --- Показываем выбор языка и типа саммари только если есть аудиофайл ---
+if audio_path or getattr(st.session_state, 'last_recording_path', None):
+    language = st.selectbox("Выберите язык", options=["ru", "en"], index=0)
+    summarization_type = st.selectbox(
+        "Выберите тип саммари",
+        [
+            "Краткое общее саммари",
+            "Структурированное саммари для регулярного созвона",
+            "Своя формулировка запроса"
+        ]
+    )
+    custom_summary_prompt = ""
+    if summarization_type == "Своя формулировка запроса":
+        custom_summary_prompt = st.text_area(
+            "Введите свой запрос для саммари (например, уточните структуру или стиль)",
+            value=""
+        )
 
-        # Удаляем временный файл только если это не последняя запись
-        if os.path.exists(final_audio_path) and final_audio_path != getattr(st.session_state, 'last_recording_path', None):
-            os.remove(final_audio_path)
-    except Exception as e:
-        st.error(f"Ошибка при транскрибации: {str(e)}")
-        logger.error(f"Transcription error: {e}")
+    # --- Шаблоны для саммари ---
+    SUMMARY_PRESETS = {
+        "Краткое общее саммари": "Сделай краткое саммари этого текста:",
+        "Структурированное саммари для регулярного созвона": (
+            "Этот созвон был регулярным для сотрудника, в котором с ним общаются его ТМ, LM и HR. "
+            "Иногда кто-то может отсутствовать. Хочу получить саммари по следующей структуре:\n\n"
+            "По проекту: [фидбек сотрудника по проекту]\n"
+            "Роль ТМ: [фидбек сотрудника по его ТМу]\n"
+            "По компании: [фидбек сотрудника по компании в целом]\n"
+            "Развитие: [фидбек сотрудника касательно его развития]\n"
+            "Отзывы:\n"
+            "Фидбэк (ТМ) – [фидбек ТМа о сотруднике]\n"
+            "Фидбэк (LM) –  [фидбек LMа о сотруднике]\n"
+            "Фидбэк HR:  [фидбек HRа о сотруднике]\n"
+            "Английский: [уровень английского сотрудника и комментарии относящиеся к этому]"
+        )
+    }
+
+    # --- Запуск транскрибации ---
+    if st.button("Транскрибировать и сделать саммари"):
+        try:
+            # Use the last recording path if audio_path is not set
+            final_audio_path = audio_path or st.session_state.last_recording_path
+            
+            with st.spinner("Транскрибация..."):
+                if SPEECHMATICS_API_KEY is None or SPEECHMATICS_ENDPOINT is None:
+                    st.error("Отсутствует API ключ или эндпоинт Speechmatics!")
+                else:
+                    transcript = transcribe_speechmatics(final_audio_path, language=language)
+                    if transcript:
+                        st.subheader("Транскрипт")
+                        st.text_area("Текст транскрипции", transcript, height=300)
+                        
+                        if GROQ_API_KEY is None or GROQ_ENDPOINT is None:
+                            st.error("Отсутствует API ключ или эндпоинт Groq!")
+                        else:
+                            with st.spinner("Генерируем саммари..."):
+                                # --- Выбор prompt для саммари ---
+                                if summarization_type == "Своя формулировка запроса" and custom_summary_prompt.strip():
+                                    summary_prompt = custom_summary_prompt.strip()
+                                else:
+                                    summary_prompt = SUMMARY_PRESETS.get(summarization_type, SUMMARY_PRESETS["Краткое общее саммари"])
+                                summary = summarize_groq(f"{summary_prompt}\n\n{transcript}")
+                                
+                                if summary:
+                                    st.subheader("Саммари")
+                                    st.text_area("Краткое содержание", summary, height=200)
+                                    
+                                    # Convert to string if needed
+                                    transcript_str = str(transcript) if not isinstance(transcript, str) else transcript
+                                    summary_str = str(summary) if not isinstance(summary, str) else summary
+                                    
+                                    st.download_button("Скачать транскрипт", transcript_str, file_name="transcript.txt")
+                                    st.download_button("Скачать саммари", summary_str, file_name="summary.txt")
+
+            # Удаляем временный файл только если это не последняя запись
+            if os.path.exists(final_audio_path) and final_audio_path != getattr(st.session_state, 'last_recording_path', None):
+                os.remove(final_audio_path)
+        except Exception as e:
+            st.error(f"Ошибка при транскрибации: {str(e)}")
+            logger.error(f"Transcription error: {e}")
