@@ -16,6 +16,7 @@ from threading import Lock
 from pydub import AudioSegment
 import io
 import time
+import lameenc
 
 # === Настройки ===
 SPEECHMATICS_API_KEY = st.secrets.get("SPEECHMATICS_API_KEY")
@@ -149,7 +150,7 @@ def summarize_groq(text):
 st.title("Транскрибация + Саммари митинга")
 
 language = st.selectbox("Выберите язык", options=["ru", "en"], index=0)
-mode = st.radio("Выберите способ ввода", ["Загрузить файл", "Записать звук"])
+mode = st.radio("Выберите способ ввода", ["Записать звук", "Загрузить файл"])
 
 audio_path = None
 
@@ -180,6 +181,13 @@ elif mode == "Записать звук":
             self.state = AudioState()
             self._first_frame_time = None
             self._frame_count = 0
+            # --- Инициализация MP3-энкодера ---
+            self.encoder = lameenc.Encoder()
+            self.encoder.set_bit_rate(64)
+            self.encoder.set_in_sample_rate(48000*2)  # для совместимости с вашей логикой
+            self.encoder.set_channels(1)
+            self.encoder.set_quality(2)
+            self.mp3_bytes = b""
 
         def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
             try:
@@ -198,7 +206,8 @@ elif mode == "Записать звук":
                         pcm = pcm.astype(np.int16)
                     audio_data = pcm.reshape(-1)
                     self.state.sample_rate = frame.sample_rate
-                    self.state.add_frame(audio_data)
+                    # --- Кодируем фрейм сразу в MP3 ---
+                    self.mp3_bytes += self.encoder.encode(audio_data.tobytes())
                 return frame
             except Exception as e:
                 logger.error(f"Error processing audio frame: {e}")
@@ -251,27 +260,16 @@ elif mode == "Записать звук":
             
         else:
             st.session_state.audio_recorder.state.is_recording = False
-            frames = st.session_state.audio_recorder.state.get_frames()
-            
-            if len(frames) > 0:
+            audio_recorder = st.session_state.audio_recorder
+            if audio_recorder and hasattr(audio_recorder, 'mp3_bytes') and audio_recorder.mp3_bytes:
                 try:
-                    logger.info(f"Number of frames to save: {len(frames)}")
-                    audio_data = np.concatenate(frames).astype(np.int16)
-                    logger.info(f"Total audio_data shape: {audio_data.shape}, dtype: {audio_data.dtype}")
-                    logger.info(f"Sample rate: {st.session_state.audio_recorder.state.sample_rate}")
-                    
-                    # Получаем реальный sample_rate из фреймов
-                    real_sample_rate = st.session_state.audio_recorder.state.sample_rate
-                    logger.info(f"Using real sample rate: {real_sample_rate}")
-
-                    # Важно! WebRTC отдаёт аудиоданные, которые нужно сохранять с sample_rate в 2 раза больше,
-                    # иначе звук будет медленнее и ниже. Это особенность работы streamlit-webrtc.
-                    audio_path = save_as_mp3(audio_data, real_sample_rate * 2, bitrate="64k")
-                    
-                    # Calculate duration based on the final MP3 file
+                    # Финализируем MP3
+                    mp3_data = audio_recorder.mp3_bytes + audio_recorder.encoder.flush()
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as mp3_file:
+                        mp3_file.write(mp3_data)
+                        audio_path = mp3_file.name
                     audio_segment = AudioSegment.from_file(audio_path)
-                    duration = len(audio_segment) / 1000.0  # Convert from ms to seconds
-                    
+                    duration = len(audio_segment) / 1000.0
                     hours, remainder = divmod(int(duration), 3600)
                     minutes, seconds = divmod(remainder, 60)
                     if hours > 0:
@@ -280,10 +278,7 @@ elif mode == "Записать звук":
                         duration_str = f"{minutes} мин {seconds} сек"
                     else:
                         duration_str = f"{seconds} сек"
-
                     st.success(f"Аудио записано! Длительность: {duration_str}")
-                    
-                    # Add download button with proper extension
                     with open(audio_path, 'rb') as f:
                         audio_bytes = f.read()
                         st.download_button(
@@ -292,21 +287,39 @@ elif mode == "Записать звук":
                             file_name="recording.mp3",
                             mime="audio/mp3"
                         )
-                    
-                    # Display audio player
-                    # st.audio(audio_path, format="audio/mp3")
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
                         audio_segment.export(wav_file.name, format="wav")
                         st.audio(wav_file.name, format="audio/wav")
-                    
-                    # Store the path for transcription
                     st.session_state.last_recording_path = audio_path
-                    
-                    # Clear the recorded frames
-                    # st.session_state.audio_recorder.state.clear_frames()
+                    audio_recorder.mp3_bytes = b""  # очищаем буфер
                 except Exception as e:
                     st.error(f"Ошибка при сохранении аудио: {str(e)}")
                     logger.error(f"Error saving audio: {e}")
+            elif getattr(st.session_state, 'last_recording_path', None):
+                # Если есть последний записанный файл — показываем его
+                audio_path = st.session_state.last_recording_path
+                audio_segment = AudioSegment.from_file(audio_path)
+                duration = len(audio_segment) / 1000.0
+                hours, remainder = divmod(int(duration), 3600)
+                minutes, seconds = divmod(remainder, 60)
+                if hours > 0:
+                    duration_str = f"{hours} ч {minutes} мин {seconds} сек"
+                elif minutes > 0:
+                    duration_str = f"{minutes} мин {seconds} сек"
+                else:
+                    duration_str = f"{seconds} сек"
+                st.success(f"Аудио записано! Длительность: {duration_str}")
+                with open(audio_path, 'rb') as f:
+                    audio_bytes = f.read()
+                    st.download_button(
+                        label="Скачать MP3",
+                        data=audio_bytes,
+                        file_name="recording.mp3",
+                        mime="audio/mp3"
+                    )
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
+                    audio_segment.export(wav_file.name, format="wav")
+                    st.audio(wav_file.name, format="audio/wav")
             else:
                 st.warning("Нет записанных данных. Попробуйте записать снова.")
 
