@@ -17,6 +17,7 @@ from pydub import AudioSegment
 import io
 import time
 import lameenc
+import psutil
 
 # === Настройки ===
 SPEECHMATICS_API_KEY = st.secrets.get("SPEECHMATICS_API_KEY")
@@ -40,7 +41,7 @@ class AudioState:
         with self.lock:
             if frame is not None and len(frame) > 0:
                 self.audio_frames.append(frame.copy())  # Make a copy to ensure thread safety
-                logger.info(f"Added frame of length {len(frame)}")
+                # logger.info(f"Added frame of length {len(frame)}")
 
     def get_frames(self) -> List[np.ndarray]:
         with self.lock:
@@ -93,10 +94,6 @@ def transcribe_speechmatics(path_to_audio, language="ru"):
             "language": language,
             "diarization": "speaker",
             "enable_entities": True,
-            # "diarization_config": {
-            #     "speaker_labels": True,
-            #     "speaker_labels_timeout": 10,
-            # }
         }
     }
 
@@ -192,14 +189,14 @@ elif mode == "Записать звук":
         def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
             try:
                 pcm = frame.to_ndarray()
-                logger.info(f"PCM shape: {pcm.shape}, dtype: {pcm.dtype}, min: {pcm.min()}, max: {pcm.max()}, frame.sample_rate: {frame.sample_rate}")
+                # logger.info(f"PCM shape: {pcm.shape}, dtype: {pcm.dtype}, min: {pcm.min()}, max: {pcm.max()}, frame.sample_rate: {frame.sample_rate}")
                 if self.state.is_recording:
                     if self._first_frame_time is None:
                         self._first_frame_time = time.time()
                     self._frame_count += 1
-                    if self._frame_count % 50 == 0:
-                        elapsed = time.time() - self._first_frame_time
-                        logger.info(f"Frames: {self._frame_count}, Elapsed: {elapsed:.2f}s, FPS: {self._frame_count/elapsed:.2f}")
+                    # if self._frame_count % 50 == 0:
+                        # elapsed = time.time() - self._first_frame_time
+                        # logger.info(f"Frames: {self._frame_count}, Elapsed: {elapsed:.2f}s, FPS: {self._frame_count/elapsed:.2f}")
                     if pcm.dtype == np.float32 or pcm.dtype == np.float64:
                         pcm = (pcm * 32767).clip(-32768, 32767).astype(np.int16)
                     else:
@@ -292,6 +289,8 @@ elif mode == "Записать звук":
                         st.audio(wav_file.name, format="audio/wav")
                     st.session_state.last_recording_path = audio_path
                     audio_recorder.mp3_bytes = b""  # очищаем буфер
+                    mem_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
+                    st.info(f"Текущее потребление памяти: {mem_mb:.2f} MB")
                 except Exception as e:
                     st.error(f"Ошибка при сохранении аудио: {str(e)}")
                     logger.error(f"Error saving audio: {e}")
@@ -320,6 +319,8 @@ elif mode == "Записать звук":
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
                     audio_segment.export(wav_file.name, format="wav")
                     st.audio(wav_file.name, format="audio/wav")
+                mem_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
+                st.info(f"Текущее потребление памяти: {mem_mb:.2f} MB")
             else:
                 st.warning("Нет записанных данных. Попробуйте записать снова.")
 
