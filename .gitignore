@@ -3,3 +3,6 @@
 temp_audio_file
 .python-version
 venv
+*node_modules
+*build
+streamlit_tab_audio_recorder

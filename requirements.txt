@@ -1,0 +1,10 @@
+streamlit
+streamlit-webrtc
+av
+httpx
+numpy
+pydub
+lameenc
+requests
+speechmatics-python
+psutil
