@@ -1,4 +1,6 @@
 import streamlit as st
+import streamlit_webrtc
+st.write("streamlit-webrtc version:", streamlit_webrtc.__version__)
 from speechmatics.models import ConnectionSettings
 from speechmatics.batch_client import BatchClient
 from httpx import HTTPStatusError
