@@ -31,8 +31,8 @@ GROQ_ENDPOINT = st.secrets.get("GROQ_ENDPOINT")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-AudioSegment.converter = which("ffmpeg")
-AudioSegment.ffprobe   = which("ffprobe")
+AudioSegment.converter = "/usr/bin/ffmpeg"
+AudioSegment.ffprobe = "/usr/bin/ffprobe"
 
 @dataclass
 class AudioState:
