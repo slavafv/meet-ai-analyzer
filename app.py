@@ -18,6 +18,7 @@ import io
 import time
 import lameenc
 import datetime
+from pydub.utils import which
 # import psutil
 
 # === Настройки ===
@@ -29,6 +30,9 @@ GROQ_ENDPOINT = st.secrets.get("GROQ_ENDPOINT")
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+AudioSegment.converter = which("ffmpeg")
+AudioSegment.ffprobe   = which("ffprobe")
 
 @dataclass
 class AudioState:
