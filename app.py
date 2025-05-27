@@ -17,7 +17,8 @@ from pydub import AudioSegment
 import io
 import time
 import lameenc
-import psutil
+import datetime
+# import psutil
 
 # === Настройки ===
 SPEECHMATICS_API_KEY = st.secrets.get("SPEECHMATICS_API_KEY")
@@ -103,7 +104,7 @@ def transcribe_speechmatics(path_to_audio, language="ru"):
                 audio=path_to_audio,
                 transcription_config=conf,
             )
-            st.info(f"Задача транскрибации отправлена, job_id: {job_id}. Ждём завершения...")
+            st.info("Задача транскрибации отправлена. Ждём завершения...")
 
             transcript = client.wait_for_completion(job_id, transcription_format='txt')
             return transcript
@@ -161,15 +162,17 @@ if mode == "Загрузить файл":
             else:
                 f.write(uploaded_file.getbuffer())
             audio_path = f.name
+        st.session_state['file_time'] = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
         st.success("Файл загружен!")
 
 elif mode == "Записать звук":
     st.info("Нажмите 'Start' для начала записи, 'Stop' — для окончания.")
-    input_type = st.radio(
-        "Выберите источник звука",
-        ["Микрофон", "Линейный вход"],
-        help="Выберите устройство для записи звука"
-    )
+    # input_type = st.radio(
+    #     "Выберите источник звука",
+    #     ["Микрофон", "Линейный вход"],
+    #     help="Выберите устройство для записи звука"
+    # )
+    input_type = "Микрофон"
 
     class AudioRecorder(AudioProcessorBase):
         def __init__(self) -> None:
@@ -187,21 +190,16 @@ elif mode == "Записать звук":
         def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
             try:
                 pcm = frame.to_ndarray()
-                # logger.info(f"PCM shape: {pcm.shape}, dtype: {pcm.dtype}, min: {pcm.min()}, max: {pcm.max()}, frame.sample_rate: {frame.sample_rate}")
                 if self.state.is_recording:
                     if self._first_frame_time is None:
                         self._first_frame_time = time.time()
                     self._frame_count += 1
-                    # if self._frame_count % 50 == 0:
-                        # elapsed = time.time() - self._first_frame_time
-                        # logger.info(f"Frames: {self._frame_count}, Elapsed: {elapsed:.2f}s, FPS: {self._frame_count/elapsed:.2f}")
                     if pcm.dtype == np.float32 or pcm.dtype == np.float64:
                         pcm = (pcm * 32767).clip(-32768, 32767).astype(np.int16)
                     else:
                         pcm = pcm.astype(np.int16)
                     audio_data = pcm.reshape(-1)
                     self.state.sample_rate = frame.sample_rate
-                    # --- Кодируем фрейм сразу в MP3 ---
                     self.mp3_bytes += self.encoder.encode(audio_data.tobytes())
                 return frame
             except Exception as e:
@@ -214,9 +212,9 @@ elif mode == "Записать звук":
         audio_processor_factory=AudioRecorder,
         media_stream_constraints={
             "audio": {
-                "echoCancellation": input_type == "Микрофон",
-                "noiseSuppression": input_type == "Микрофон",
-                "autoGainControl": input_type == "Микрофон"
+                "echoCancellation": True,
+                "noiseSuppression": True,
+                "autoGainControl": True
             },
             "video": False
         },
@@ -237,7 +235,6 @@ elif mode == "Записать звук":
         if ctx.state.playing:
             st.session_state.audio_recorder.state.is_recording = True
             st.warning(f"Идёт запись с устройства: {input_type}")
-            
             # Add recording indicator
             recording_placeholder = st.empty()
             recording_time = 0
@@ -252,17 +249,16 @@ elif mode == "Записать звук":
                     recording_placeholder.warning(f"Идёт запись... {seconds} сек")
                 time.sleep(0.1)
                 recording_time += 0.1
-            
         else:
             st.session_state.audio_recorder.state.is_recording = False
             audio_recorder = st.session_state.audio_recorder
             if audio_recorder and hasattr(audio_recorder, 'mp3_bytes') and audio_recorder.mp3_bytes:
                 try:
-                    # Финализируем MP3
                     mp3_data = audio_recorder.mp3_bytes + audio_recorder.encoder.flush()
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as mp3_file:
                         mp3_file.write(mp3_data)
                         audio_path = mp3_file.name
+                    st.session_state['file_time'] = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
                     audio_segment = AudioSegment.from_file(audio_path)
                     duration = len(audio_segment) / 1000.0
                     hours, remainder = divmod(int(duration), 3600)
@@ -287,13 +283,12 @@ elif mode == "Записать звук":
                         st.audio(wav_file.name, format="audio/wav")
                     st.session_state.last_recording_path = audio_path
                     audio_recorder.mp3_bytes = b""  # очищаем буфер
-                    mem_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
-                    st.info(f"Текущее потребление памяти: {mem_mb:.2f} MB")
+                    # mem_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
+                    # st.info(f"Текущее потребление памяти: {mem_mb:.2f} MB")
                 except Exception as e:
                     st.error(f"Ошибка при сохранении аудио: {str(e)}")
                     logger.error(f"Error saving audio: {e}")
             elif getattr(st.session_state, 'last_recording_path', None):
-                # Если есть последний записанный файл — показываем его
                 audio_path = st.session_state.last_recording_path
                 audio_segment = AudioSegment.from_file(audio_path)
                 duration = len(audio_segment) / 1000.0
@@ -306,41 +301,48 @@ elif mode == "Записать звук":
                 else:
                     duration_str = f"{seconds} сек"
                 st.success(f"Аудио записано! Длительность: {duration_str}")
+                st.session_state['file_time'] = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
                 with open(audio_path, 'rb') as f:
                     audio_bytes = f.read()
                     st.download_button(
                         label="Скачать MP3",
                         data=audio_bytes,
-                        file_name="recording.mp3",
+                        file_name=f"{st.session_state['file_time']}-recording.mp3",
                         mime="audio/mp3"
                     )
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
                     audio_segment.export(wav_file.name, format="wav")
                     st.audio(wav_file.name, format="audio/wav")
-                mem_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
-                st.info(f"Текущее потребление памяти: {mem_mb:.2f} MB")
+                # mem_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
+                # st.info(f"Текущее потребление памяти: {mem_mb:.2f} MB")
             else:
                 st.warning("Нет записанных данных. Попробуйте записать снова.")
 
 # --- Показываем выбор языка и типа саммари только если есть аудиофайл ---
 if audio_path or getattr(st.session_state, 'last_recording_path', None):
     language = st.selectbox("Выберите язык", options=["ru", "en"], index=0)
+
+    # --- Блок выбора типа саммари и поля кастомного запроса (всегда показывается) ---
+    summary_types = [
+        "Краткое общее саммари",
+        "Структурированное саммари для регулярного созвона",
+        "Своя формулировка запроса"
+    ]
     summarization_type = st.selectbox(
         "Выберите тип саммари",
-        [
-            "Краткое общее саммари",
-            "Структурированное саммари для регулярного созвона",
-            "Своя формулировка запроса"
-        ]
+        summary_types,
+        index=summary_types.index(st.session_state.get("_summary_type_last", "Краткое общее саммари")),
+        key="summary_type_select"
     )
     custom_summary_prompt = ""
     if summarization_type == "Своя формулировка запроса":
         custom_summary_prompt = st.text_area(
             "Введите свой запрос для саммари (например, уточните структуру или стиль)",
-            value=""
+            value=st.session_state.get("_custom_prompt_last", ""),
+            key="custom_summary_prompt_area"
         )
 
-    # --- Шаблоны для саммари ---
+    # --- Шаблоны для саммари (перемещено выше) ---
     SUMMARY_PRESETS = {
         "Краткое общее саммари": "Сделай краткое саммари этого текста:",
         "Структурированное саммари для регулярного созвона": (
@@ -358,46 +360,116 @@ if audio_path or getattr(st.session_state, 'last_recording_path', None):
         )
     }
 
-    # --- Запуск транскрибации ---
-    if st.button("Транскрибировать и сделать саммари"):
-        try:
-            # Use the last recording path if audio_path is not set
-            final_audio_path = audio_path or st.session_state.last_recording_path
-            
-            with st.spinner("Транскрибация..."):
-                if SPEECHMATICS_API_KEY is None or SPEECHMATICS_ENDPOINT is None:
-                    st.error("Отсутствует API ключ или эндпоинт Speechmatics!")
-                else:
+    # --- Кнопка "Переделать транскрипцию и саммари" при смене языка ---
+    last_transcript_lang = st.session_state.get("_last_transcript_lang", None)
+    show_retranscribe_btn = False
+    if st.session_state.get("transcript") and language != last_transcript_lang:
+        show_retranscribe_btn = True
+        if st.button("Переделать транскрипцию и саммари"):
+            try:
+                final_audio_path = audio_path or st.session_state.last_recording_path
+                with st.spinner("Транскрибация..."):
                     transcript = transcribe_speechmatics(final_audio_path, language=language)
                     if transcript:
-                        st.subheader("Транскрипт")
-                        st.text_area("Текст транскрипции", transcript, height=300)
-                        
-                        if GROQ_API_KEY is None or GROQ_ENDPOINT is None:
-                            st.error("Отсутствует API ключ или эндпоинт Groq!")
+                        st.session_state.transcript = transcript
+                        st.session_state._last_transcript_lang = language
+                        # Генерируем саммари с текущими параметрами
+                        if summarization_type == "Своя формулировка запроса" and custom_summary_prompt.strip():
+                            summary_prompt = custom_summary_prompt.strip()
                         else:
-                            with st.spinner("Генерируем саммари..."):
-                                # --- Выбор prompt для саммари ---
-                                if summarization_type == "Своя формулировка запроса" and custom_summary_prompt.strip():
-                                    summary_prompt = custom_summary_prompt.strip()
-                                else:
-                                    summary_prompt = SUMMARY_PRESETS.get(summarization_type, SUMMARY_PRESETS["Краткое общее саммари"])
-                                summary = summarize_groq(f"{summary_prompt}\n\n{transcript}")
-                                
-                                if summary:
-                                    st.subheader("Саммари")
-                                    st.text_area("Краткое содержание", summary, height=200)
-                                    
-                                    # Convert to string if needed
-                                    transcript_str = str(transcript) if not isinstance(transcript, str) else transcript
-                                    summary_str = str(summary) if not isinstance(summary, str) else summary
-                                    
-                                    st.download_button("Скачать транскрипт", transcript_str, file_name="transcript.txt")
-                                    st.download_button("Скачать саммари", summary_str, file_name="summary.txt")
+                            summary_prompt = SUMMARY_PRESETS.get(summarization_type, SUMMARY_PRESETS["Краткое общее саммари"])
+                        with st.spinner("Генерируем саммари..."):
+                            summary = summarize_groq(f"{summary_prompt}\n\n{transcript}")
+                            if summary:
+                                st.session_state.summary = summary
+                                st.session_state._summary_type_last = summarization_type
+                                st.session_state._custom_prompt_last = custom_summary_prompt
+                                st.success("Транскрипция и саммари обновлены!")
+                        st.rerun()
+                if os.path.exists(final_audio_path) and final_audio_path != getattr(st.session_state, 'last_recording_path', None):
+                    os.remove(final_audio_path)
+            except Exception as e:
+                st.error(f"Ошибка при повторной транскрибации: {str(e)}")
+                logger.error(f"Retranscription error: {e}")
 
-            # Удаляем временный файл только если это не последняя запись
-            if os.path.exists(final_audio_path) and final_audio_path != getattr(st.session_state, 'last_recording_path', None):
-                os.remove(final_audio_path)
-        except Exception as e:
-            st.error(f"Ошибка при транскрибации: {str(e)}")
-            logger.error(f"Transcription error: {e}")
+    # --- Логика "Переделать саммари" (кнопка сразу под выбором типа) ---
+    show_rebuild_btn = False
+    if st.session_state.get("transcript"):
+        prev_summary_type = st.session_state.get("_summary_type_last", None)
+        prev_custom_prompt = st.session_state.get("_custom_prompt_last", None)
+        summary_type_changed = summarization_type != prev_summary_type
+        custom_prompt_changed = False
+        if summarization_type == "Своя формулировка запроса":
+            custom_prompt_changed = custom_summary_prompt.strip() != (prev_custom_prompt or "").strip()
+        show_rebuild_btn = st.session_state.get("summary") and (summary_type_changed or custom_prompt_changed)
+        if show_rebuild_btn:
+            if st.button("Переделать саммари"):
+                if summarization_type == "Своя формулировка запроса" and custom_summary_prompt.strip():
+                    summary_prompt = custom_summary_prompt.strip()
+                else:
+                    summary_prompt = SUMMARY_PRESETS.get(summarization_type, SUMMARY_PRESETS["Краткое общее саммари"])
+                with st.spinner("Генерируем новое саммари..."):
+                    summary = summarize_groq(f"{summary_prompt}\n\n{st.session_state.transcript}")
+                    if summary:
+                        st.session_state.summary = summary
+                        st.session_state._summary_type_last = summarization_type
+                        st.session_state._custom_prompt_last = custom_summary_prompt
+                        st.success("Саммари обновлено!")
+                        st.rerun()
+        if st.session_state.get("summary") and not (summary_type_changed or custom_prompt_changed):
+            st.session_state._summary_type_last = summarization_type
+            st.session_state._custom_prompt_last = custom_summary_prompt
+    if st.session_state.get("transcript") and not show_retranscribe_btn:
+        st.session_state._last_transcript_lang = language
+
+    # --- Показываем транскрипт, если он есть ---
+    if st.session_state.get("transcript"):
+        st.subheader("Транскрипт")
+        st.text_area("Текст транскрипции", st.session_state.transcript, height=300, key="transcript_area")
+
+    # --- Показываем саммари, если оно есть ---
+    if st.session_state.get("summary"):
+        st.subheader("Саммари")
+        st.text_area("Краткое содержание", st.session_state.summary, height=200, key="summary_area")
+        st.download_button(
+            "Скачать транскрипт",
+            st.session_state.transcript,
+            file_name=f"{st.session_state['file_time']}-transcript.txt"
+        )
+        st.download_button(
+            "Скачать саммари",
+            st.session_state.summary,
+            file_name=f"{st.session_state['file_time']}-summary.txt"
+        )
+
+    # --- Кнопка транскрибации ---
+    if not (st.session_state.get("transcript") and st.session_state.get("summary")):
+        if st.button("Транскрибировать и сделать саммари"):
+            try:
+                final_audio_path = audio_path or st.session_state.last_recording_path
+                with st.spinner("Транскрибация..."):
+                    if SPEECHMATICS_API_KEY is None or SPEECHMATICS_ENDPOINT is None:
+                        st.error("Отсутствует API ключ или эндпоинт Speechmatics!")
+                    else:
+                        transcript = transcribe_speechmatics(final_audio_path, language=language)
+                        if transcript:
+                            st.session_state.transcript = transcript
+                            if GROQ_API_KEY is None or GROQ_ENDPOINT is None:
+                                st.error("Отсутствует API ключ или эндпоинт Groq!")
+                            else:
+                                with st.spinner("Генерируем саммари..."):
+                                    if summarization_type == "Своя формулировка запроса" and custom_summary_prompt.strip():
+                                        summary_prompt = custom_summary_prompt.strip()
+                                    else:
+                                        summary_prompt = SUMMARY_PRESETS.get(summarization_type, SUMMARY_PRESETS["Краткое общее саммари"])
+                                    summary = summarize_groq(f"{summary_prompt}\n\n{transcript}")
+                                    if summary:
+                                        st.session_state.summary = summary
+                                        st.session_state._summary_type_last = summarization_type
+                                        st.session_state._custom_prompt_last = custom_summary_prompt
+                                        st.rerun()
+                if os.path.exists(final_audio_path) and final_audio_path != getattr(st.session_state, 'last_recording_path', None):
+                    os.remove(final_audio_path)
+            except Exception as e:
+                st.error(f"Ошибка при транскрибации: {str(e)}")
+                logger.error(f"Transcription error: {e}")
