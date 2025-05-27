@@ -7,5 +7,3 @@ pydub
 lameenc
 requests
 speechmatics-python
-psutil
-streamlit-ffmpeg
