@@ -23,12 +23,22 @@ export default async function handler(req, res) {
   // Используем современный синтаксис formidable
   const form = formidable();
   form.parse(req, async (err, fields, files) => {
+    console.log("files:", files);
     if (err) {
       res.status(500).json({ error: "Form parse error" });
       return;
     }
     try {
       const audioFile = files.audio;
+      if (!audioFile) {
+        res.status(400).json({ error: "No audio file uploaded" });
+        return;
+      }
+      const filePath = audioFile.filepath || audioFile.path;
+      if (!filePath) {
+        res.status(400).json({ error: "No file path in uploaded file" });
+        return;
+      }
       const config = fields.config || JSON.stringify({
         type: "transcription",
         transcription_config: {
@@ -42,7 +52,7 @@ export default async function handler(req, res) {
       console.log("CONFIG:", config);
 
       const formData = new FormData();
-      formData.append("data_file", fs.createReadStream(audioFile.filepath), {
+      formData.append("data_file", fs.createReadStream(filePath), {
         filename: audioFile.originalFilename,
         contentType: audioFile.mimetype || "audio/webm"
       });
