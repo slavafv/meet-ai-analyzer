@@ -5,7 +5,14 @@ import { exec } from "child_process";
 import path from "path";
 import os from "os";
 import fs from "fs/promises";
-import ffmpegPath from "ffmpeg-static";
+import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const ffmpegPath = require('ffmpeg-static').path || path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  'node_modules/ffmpeg-static/ffmpeg'
+);
 
 export const config = {
   api: {
