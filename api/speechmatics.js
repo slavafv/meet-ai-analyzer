@@ -20,8 +20,8 @@ export default async function handler(req, res) {
 
   console.log("API KEY:", apiKey ? "OK" : "MISSING");
 
-  // Парсим form-data
-  const form = new formidable.IncomingForm();
+  // Используем современный синтаксис formidable
+  const form = formidable();
   form.parse(req, async (err, fields, files) => {
     if (err) {
       res.status(500).json({ error: "Form parse error" });
