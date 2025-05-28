@@ -4,8 +4,8 @@ export default async function handler(req, res) {
     return;
   }
 
-  const apiKey = process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY;
-  const endpoint = process.env.VITE_GROQ_ENDPOINT || process.env.GROQ_ENDPOINT;
+  const apiKey = process.env.GROQ_API_KEY;
+  const endpoint = process.env.GROQ_ENDPOINT;
 
   const { transcript, prompt } = req.body || {};
 

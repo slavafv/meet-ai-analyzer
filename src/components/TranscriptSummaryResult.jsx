@@ -14,7 +14,7 @@ function downloadText(text, filename) {
 
 export default function TranscriptSummaryResult({ transcript, summary }) {
   return (
-    <Box>
+    <Box bgcolor="white" p={2} borderRadius={1} boxShadow={1}>
       <Typography variant="h6" sx={{ mt: 2 }}>Транскрипт</Typography>
       <Stack direction="row" spacing={1} alignItems="center">
         <TextField value={transcript} multiline fullWidth minRows={4} />

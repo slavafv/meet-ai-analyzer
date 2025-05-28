@@ -39,17 +39,17 @@ export default async function handler(req, res) {
     }
 
     try {
-      const tempWavPath = path.join(os.tmpdir(), `${audioFile.newFilename}.wav`);
+      const tempMp3Path = path.join(os.tmpdir(), `${audioFile.newFilename}.mp3`);
       
       await new Promise((resolve, reject) => {
-        exec(`ffmpeg -y -i "${filePath}" -ar 16000 -ac 1 "${tempWavPath}"`, (err) => {
+        exec(`ffmpeg -y -i "${filePath}" -ar 16000 -ac 1 -codec:a libmp3lame "${tempMp3Path}"`, (err) => {
           if (err) reject(err);
           else resolve();
         });
       });
 
-      const blob = await openAsBlob(tempWavPath);
-      const file = new File([blob], audioFile.originalFilename.replace(/\.webm$/, ".wav"), { type: "audio/wav" });
+      const blob = await openAsBlob(tempMp3Path);
+      const file = new File([blob], audioFile.originalFilename.replace(/\.webm$/, ".mp3"), { type: "audio/mp3" });
 
       const lang = Array.isArray(fields.lang) ? fields.lang[0] : (fields.lang || "ru");
       const transcription_config = {

@@ -48,7 +48,7 @@ export default function App() {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: 4 }}>
+    <Container sx={{ py: 4 }}>
       <Typography variant="h4" align="center" gutterBottom>
         Транскрибация и саммари митинга
       </Typography>
