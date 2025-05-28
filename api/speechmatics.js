@@ -7,8 +7,17 @@ import os from "os";
 import fs from "fs/promises";
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import ffmpegPath from "ffmpeg-static";
 
 const require = createRequire(import.meta.url);
+console.log("ffmpegPath:", ffmpegPath);
+try {
+  const exists = fs.existsSync(ffmpegPath);
+  console.log("ffmpeg exists:", exists);
+} catch (e) {
+  console.log("ffmpeg exists check error:", e.message);
+}
+
 const ffmpegPath = require('ffmpeg-static').path || path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   'node_modules/ffmpeg-static/ffmpeg'
