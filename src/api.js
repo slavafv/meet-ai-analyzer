@@ -2,9 +2,10 @@ import axios from "axios";
 
 // Отправка аудио на serverless backend для транскрипции
 export async function sendAudioForTranscription(file, lang, prompt, onStatus = () => {}, onProgress = () => {}) {
+  console.log('===>> file:', file)
   onStatus("Отправление аудио...");
   const formData = new FormData();
-  formData.append("audio", file);
+  formData.append("data_file", file);
   formData.append("lang", lang);
   formData.append("prompt", prompt);
 
