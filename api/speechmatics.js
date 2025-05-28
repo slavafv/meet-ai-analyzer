@@ -1,7 +1,10 @@
 import formidable from "formidable";
-import fs from "fs";
-import FormData from "form-data";
-import fetch from "node-fetch";
+import { BatchClient } from "@speechmatics/batch-client";
+import { openAsBlob } from "node:fs";
+import { exec } from "child_process";
+import path from "path";
+import os from "os";
+import fs from "fs/promises";
 
 export const config = {
   api: {
@@ -16,92 +19,60 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.SPEECHMATICS_API_KEY;
-  const endpoint = process.env.SPEECHMATICS_ENDPOINT;
 
-  console.log("API KEY:", apiKey ? "OK" : "MISSING");
-
-  // Используем современный синтаксис formidable
   const form = formidable();
+
   form.parse(req, async (err, fields, files) => {
-    console.log("files:", files);
-    if (err) {
-      res.status(500).json({ error: "Form parse error" });
+    let audioFile = files.audio;
+
+    if (Array.isArray(audioFile)) audioFile = audioFile[0];
+    if (!audioFile) {
+      res.status(400).json({ error: "No audio file uploaded" });
       return;
     }
+
+    const filePath = audioFile.filepath || audioFile.path;
+
+    if (!filePath) {
+      res.status(400).json({ error: "No file path in uploaded file" });
+      return;
+    }
+
     try {
-      const audioFile = files.audio;
-      if (!audioFile) {
-        res.status(400).json({ error: "No audio file uploaded" });
-        return;
-      }
-      const filePath = audioFile.filepath || audioFile.path;
-      if (!filePath) {
-        res.status(400).json({ error: "No file path in uploaded file" });
-        return;
-      }
-      const config = fields.config || JSON.stringify({
-        type: "transcription",
-        transcription_config: {
-          language: fields.lang || "ru",
-          diarization: "speaker",
-          enable_entities: true
-        }
-      });
-
-      console.log(audioFile);
-      console.log("CONFIG:", config);
-
-      const formData = new FormData();
-      formData.append("data_file", fs.createReadStream(filePath), {
-        filename: audioFile.originalFilename,
-        contentType: audioFile.mimetype || "audio/webm"
-      });
-      formData.append("config", config);
-
-      console.log("Sending to Speechmatics:", {
-        filename: audioFile.originalFilename,
-        mimetype: audioFile.mimetype,
-        config
-      });
-
-      const speechResp = await fetch(endpoint, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}` },
-        body: formData,
-      });
-
-      const data = await speechResp.json();
-      console.log("Speechmatics response:", data);
-
-      // Теперь нужно опрашивать статус job и получить транскрипт
-      if (!data.id) {
-        res.status(500).json({ error: "Speechmatics job creation failed", details: data });
-        return;
-      }
-
-      // Polling for job completion
-      let status = "running";
-      let transcript = "";
-      while (status === "running" || status === "queued") {
-        await new Promise(r => setTimeout(r, 2000));
-        const statusResp = await fetch(`${endpoint}${data.id}/`, {
-          headers: { Authorization: `Bearer ${apiKey}` }
+      const tempWavPath = path.join(os.tmpdir(), `${audioFile.newFilename}.wav`);
+      
+      await new Promise((resolve, reject) => {
+        exec(`ffmpeg -y -i "${filePath}" -ar 16000 -ac 1 "${tempWavPath}"`, (err) => {
+          if (err) reject(err);
+          else resolve();
         });
-        const statusData = await statusResp.json();
-        status = statusData.job.status;
-        if (status === "done") {
-          const transcriptResp = await fetch(`${endpoint}${data.id}/transcript?format=txt`, {
-            headers: { Authorization: `Bearer ${apiKey}` }
-          });
-          transcript = await transcriptResp.text();
-          break;
+      });
+
+      const blob = await openAsBlob(tempWavPath);
+      const file = new File([blob], audioFile.originalFilename.replace(/\.webm$/, ".wav"), { type: "audio/wav" });
+
+      const lang = Array.isArray(fields.lang) ? fields.lang[0] : (fields.lang || "ru");
+      const transcription_config = {
+        language: lang,
+        diarization: "speaker",
+        enable_entities: true
+      };
+      console.log("transcription_config:", transcription_config);
+
+      const client = new BatchClient({ apiKey, appId: 'my-app' });
+
+      // Отправляем на транскрипцию
+      const response = await client.transcribe(
+        file,
+        {
+          transcription_config: transcription_config
         }
-        if (status === "failed") {
-          res.status(500).json({ error: "Speechmatics job failed" });
-          return;
-        }
-      }
-      res.status(200).json({ transcript });
+      );
+
+      const result = await client.getJobResult(response.job.id, 'text');
+      console.log('===>> result:', result)
+      
+      res.status(200).json({ transcript: result });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
