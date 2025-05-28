@@ -15,8 +15,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  const apiKey = process.env.VITE_SPEECHMATICS_API_KEY || process.env.SPEECHMATICS_API_KEY;
-  const endpoint = process.env.VITE_SPEECHMATICS_ENDPOINT || process.env.SPEECHMATICS_ENDPOINT;
+  const apiKey = process.env.SPEECHMATICS_API_KEY;
+  const endpoint = process.env.SPEECHMATICS_ENDPOINT;
+
+  console.log("API KEY:", apiKey ? "OK" : "MISSING");
 
   // Парсим form-data
   const form = new formidable.IncomingForm();
@@ -36,9 +38,21 @@ export default async function handler(req, res) {
         }
       });
 
+      console.log(audioFile);
+      console.log("CONFIG:", config);
+
       const formData = new FormData();
-      formData.append("data_file", fs.createReadStream(audioFile.filepath), audioFile.originalFilename);
+      formData.append("data_file", fs.createReadStream(audioFile.filepath), {
+        filename: audioFile.originalFilename,
+        contentType: audioFile.mimetype || "audio/webm"
+      });
       formData.append("config", config);
+
+      console.log("Sending to Speechmatics:", {
+        filename: audioFile.originalFilename,
+        mimetype: audioFile.mimetype,
+        config
+      });
 
       const speechResp = await fetch(endpoint, {
         method: "POST",
@@ -47,6 +61,7 @@ export default async function handler(req, res) {
       });
 
       const data = await speechResp.json();
+      console.log("Speechmatics response:", data);
 
       // Теперь нужно опрашивать статус job и получить транскрипт
       if (!data.id) {
