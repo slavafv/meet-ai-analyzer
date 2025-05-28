@@ -5,6 +5,7 @@ import { exec } from "child_process";
 import path from "path";
 import os from "os";
 import fs from "fs/promises";
+import ffmpegPath from "ffmpeg-static";
 
 export const config = {
   api: {
@@ -42,7 +43,7 @@ export default async function handler(req, res) {
       const tempMp3Path = path.join(os.tmpdir(), `${audioFile.newFilename}.mp3`);
       
       await new Promise((resolve, reject) => {
-        exec(`ffmpeg -y -i "${filePath}" -ar 16000 -ac 1 -codec:a libmp3lame "${tempMp3Path}"`, (err) => {
+        exec(`"${ffmpegPath}" -y -i "${filePath}" -ar 16000 -ac 1 -codec:a libmp3lame "${tempMp3Path}"`, (err) => {
           if (err) reject(err);
           else resolve();
         });
