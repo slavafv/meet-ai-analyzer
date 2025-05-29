@@ -2,15 +2,15 @@ import axios from "axios";
 
 // Отправка аудио на serverless backend для транскрипции
 export async function sendAudioForTranscription(file, lang, prompt, onStatus = () => {}, onProgress = () => {}) {
-  console.log('===>> file:', file)
   onStatus("Отправление аудио...");
   const formData = new FormData();
-  formData.append("data_file", file);
+  formData.append("data_file", file, file.name);
   formData.append("lang", lang);
   formData.append("prompt", prompt);
 
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
   // Отправляем на свой endpoint
-  const response = await axios.post("/api/speechmatics", formData, {
+  const response = await axios.post(`${BACKEND_URL}/upload`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
     onUploadProgress: (progressEvent) => {
       if (progressEvent.total) {
