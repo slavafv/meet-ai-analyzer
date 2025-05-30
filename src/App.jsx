@@ -7,6 +7,18 @@ import TranscriptSummaryResult from "./components/TranscriptSummaryResult";
 import ProgressStatus from "./components/ProgressStatus";
 import { sendAudioForTranscription, sendTextForSummary } from "./api";
 
+// Функция для генерации имени файла по шаблону
+function getTimestampedName(suffix, ext, timestamp) {
+  const now = timestamp ? new Date(timestamp) : new Date();
+  const pad = (n) => n.toString().padStart(2, "0");
+  const yyyy = now.getFullYear();
+  const mm = pad(now.getMonth() + 1);
+  const dd = pad(now.getDate());
+  const hh = pad(now.getHours());
+  const min = pad(now.getMinutes());
+  return `${yyyy}-${mm}-${dd}-${hh}-${min}-${suffix}.${ext}`;
+}
+
 export default function App() {
   const [audioFile, setAudioFile] = useState(null);
   const [audioUrl, setAudioUrl] = useState("");
@@ -17,6 +29,19 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState({ transcript: "", summary: "" });
   const [loading, setLoading] = useState(false);
+  const [recordTimestamp, setRecordTimestamp] = useState(null);
+
+  // Имя для скачивания аудио
+  const getDownloadName = () => getTimestampedName("record", "mp3", recordTimestamp);
+
+  const handleDownloadAudio = () => {
+    if (audioUrl) {
+      const a = document.createElement("a");
+      a.href = audioUrl;
+      a.download = getDownloadName();
+      a.click();
+    }
+  };
 
   const handleTranscribe = async () => {
     setLoading(true);
@@ -54,16 +79,31 @@ export default function App() {
       </Typography>
       <Paper sx={{ p: 2, mb: 2 }}>
         <AudioRecorder
-          onAudioReady={(file, url) => { setAudioFile(file); setAudioUrl(url); }}
+          onAudioReady={(file, url) => {
+            setAudioFile(file);
+            setAudioUrl(url);
+            setRecordTimestamp(Date.now());
+          }}
         />
         <Box my={2} textAlign="center">или</Box>
         <FileUploader
-          onFileSelected={(file, url) => { setAudioFile(file); setAudioUrl(url); }}
+          onFileSelected={(file, url) => {
+            setAudioFile(file);
+            setAudioUrl(url);
+            setRecordTimestamp(Date.now());
+          }}
         />
       </Paper>
       {audioFile && (
         <Paper sx={{ p: 2, mb: 2 }}>
           <audio controls src={audioUrl} style={{ width: "100%" }} />
+          <Button
+            variant="outlined"
+            sx={{ mt: 1, mb: 2 }}
+            onClick={handleDownloadAudio}
+          >
+            Скачать аудио
+          </Button>
           <SummaryOptions
             lang={lang}
             setLang={setLang}
@@ -89,6 +129,7 @@ export default function App() {
         <TranscriptSummaryResult
           transcript={result.transcript}
           summary={result.summary}
+          getTimestampedName={(suffix, ext) => getTimestampedName(suffix, ext, recordTimestamp)}
         />
       )}
     </Container>
