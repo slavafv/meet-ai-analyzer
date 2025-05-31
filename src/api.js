@@ -1,21 +1,19 @@
 import axios from "axios";
+import { tempSummary, tempTranscript } from './constants.js'
 
 // Определяем BACKEND_URL в зависимости от среды
-let BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
-if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-  BACKEND_URL = "http://localhost:3000";
-}
+const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const BACKEND_URL = isLocalhost ? "http://localhost:3000" : import.meta.env.VITE_BACKEND_URL;
 
 // Отправка аудио на serverless backend для транскрипции
-export async function sendAudioForTranscription(file, lang, prompt, onStatus = () => {}, onProgress = () => {}) {
+export async function sendAudioForTranscription(file, lang, onStatus = () => {}, onProgress = () => {}) {
   onStatus("Отправление аудио...");
   const formData = new FormData();
   formData.append("data_file", file, file.name);
   formData.append("lang", lang);
-  formData.append("prompt", prompt);
-
+  
   // Отправляем на свой endpoint
-  const response = await axios.post(`${BACKEND_URL}/upload`, formData, {
+  const response = !isLocalhost ? await axios.post(`${BACKEND_URL}/upload`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
     onUploadProgress: (progressEvent) => {
       if (progressEvent.total) {
@@ -23,7 +21,7 @@ export async function sendAudioForTranscription(file, lang, prompt, onStatus = (
         onProgress(percent);
       }
     }
-  });
+  }) : { data: { transcript: tempTranscript } };
   // Ожидаем, что backend вернет { transcript }
   return response.data.transcript;
 }
@@ -31,10 +29,10 @@ export async function sendAudioForTranscription(file, lang, prompt, onStatus = (
 // Отправка текста на serverless backend для саммари
 export async function sendTextForSummary(transcript, prompt, onStatus = () => {}) {
   onStatus("Ожидание саммари...");
-  const response = await axios.post("/api/groq", {
+  const response = !isLocalhost ? await axios.post("/api/groq", {
     transcript,
     prompt
-  });
+  }) : { data: { summary: tempSummary } };
   // Ожидаем, что backend вернет { summary }
   return response.data.summary;
 }

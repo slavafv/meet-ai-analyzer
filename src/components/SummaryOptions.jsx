@@ -1,34 +1,52 @@
 import React from "react";
-import { FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, TextField, Box } from "@mui/material";
+import { FormControl, InputLabel, Select, MenuItem, TextField, Box } from "@mui/material";
+import { SUMMARY_KEYS } from "../constants";
+import { useTranslation } from "react-i18next";
 
 export default function SummaryOptions({ lang, setLang, summaryType, setSummaryType, customPrompt, setCustomPrompt }) {
+  const { t } = useTranslation();
+  
   return (
-    <Box>
-      <FormControl fullWidth sx={{ mt: 2 }}>
-        <FormLabel>Язык</FormLabel>
-        <RadioGroup row value={lang} onChange={e => setLang(e.target.value)}>
-          <FormControlLabel value="ru" control={<Radio />} label="Русский" />
-          <FormControlLabel value="en" control={<Radio />} label="English" />
-        </RadioGroup>
-      </FormControl>
-      <FormControl fullWidth sx={{ mt: 2 }}>
-        <FormLabel>Тип саммари</FormLabel>
-        <RadioGroup
-          value={summaryType}
-          onChange={e => setSummaryType(e.target.value)}
-        >
-          <FormControlLabel value="short" control={<Radio />} label="Краткое общее саммари" />
-          <FormControlLabel value="structured" control={<Radio />} label="Структурированное саммари для регулярного созвона" />
-          <FormControlLabel value="custom" control={<Radio />} label="Своя формулировка запроса" />
-        </RadioGroup>
-      </FormControl>
-      {summaryType === "custom" && (
+    <Box sx={{ mt: 3 }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+        <FormControl sx={{ flex: 1 }}>
+          <InputLabel id="language-label">{t('summaryOptions.language')}</InputLabel>
+          <Select
+            labelId="language-label"
+            value={lang}
+            label={t('summaryOptions.language')}
+            onChange={(e) => setLang(e.target.value)}
+          >
+            <MenuItem value="en">{t('summaryOptions.english')}</MenuItem>
+            <MenuItem value="ru">{t('summaryOptions.russian')}</MenuItem>
+          </Select>
+        </FormControl>
+        
+        <FormControl sx={{ flex: 1 }}>
+          <InputLabel id="summary-type-label">{t('summaryOptions.summaryType')}</InputLabel>
+          <Select
+            labelId="summary-type-label"
+            value={summaryType}
+            label={t('summaryOptions.summaryType')}
+            onChange={(e) => setSummaryType(e.target.value)}
+          >
+            <MenuItem value={SUMMARY_KEYS.SHORT}>{t('summaryOptions.types.short')}</MenuItem>
+            <MenuItem value={SUMMARY_KEYS.REGULAR}>{t('summaryOptions.types.regular')}</MenuItem>
+            <MenuItem value={SUMMARY_KEYS.CUSTOM}>{t('summaryOptions.types.custom')}</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+      
+      {summaryType === SUMMARY_KEYS.CUSTOM && (
         <TextField
-          label="Ваш промпт"
-          value={customPrompt}
-          onChange={e => setCustomPrompt(e.target.value)}
           fullWidth
+          label={t('summaryOptions.customPrompt')}
           multiline
+          minRows={2}
+          maxRows={100}
+          value={customPrompt}
+          onChange={(e) => setCustomPrompt(e.target.value)}
+          InputProps={{ sx: { alignItems: 'flex-start' } }}
           sx={{ mt: 2 }}
         />
       )}

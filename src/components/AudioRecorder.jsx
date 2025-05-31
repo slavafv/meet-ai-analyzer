@@ -1,41 +1,101 @@
-import React, { useRef, useState, useEffect } from "react";
-import { Button, Box, Typography } from "@mui/material";
-import MicIcon from "@mui/icons-material/Mic";
-import StopIcon from "@mui/icons-material/Stop";
+import React, { useRef, useState, useEffect, forwardRef } from "react";
 import lamejs from "lamejs";
 
-export default function AudioRecorder({ onAudioReady }) {
+export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecordingChange }, ref) {
   const [recording, setRecording] = useState(false);
-  const [audioUrl, setAudioUrl] = useState("");
   const [error, setError] = useState("");
+  const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
   const streamsRef = useRef({});
   const [webmUrl, setWebmUrl] = useState(null);
+  const timerRef = useRef(null);
+  const startTimeRef = useRef(null);
+  // Состояние подготовки к записи - когда кнопка нажата, но запись еще не началась
+  const [preparing, setPreparing] = useState(false);
+
+  // Expose methods to parent component via ref
+  useEffect(() => {
+    if (ref) {
+      ref.current = {
+        startRecording,
+        stopRecording,
+        getRecordingTime: () => recordingTime,
+        isPreparing: () => preparing
+      };
+    }
+  }, [ref, recordingTime, preparing]);
+
+  // Notify parent when recording state changes
+  useEffect(() => {
+    if (onRecordingChange) {
+      onRecordingChange(recording);
+    }
+  }, [recording, onRecordingChange]);
 
   // Очистка objectURL при размонтировании компонента
   useEffect(() => {
     return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
       if (webmUrl) {
         URL.revokeObjectURL(webmUrl);
       }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
     };
-  }, [audioUrl, webmUrl]);
+  }, [webmUrl]);
+
+  // Обновление таймера только во время активной записи
+  useEffect(() => {
+    if (recording && startTimeRef.current) {
+      timerRef.current = setInterval(() => {
+        const elapsedTime = Date.now() - startTimeRef.current;
+        setRecordingTime(elapsedTime);
+      }, 10); // Обновляем каждые 10мс для плавности
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (!recording) {
+        setRecordingTime(0);
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [recording]);
+
+  const formatTime = (ms) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const milliseconds = Math.floor((ms % 1000) / 10);
+
+    const pad = (n, length = 2) => String(n).padStart(length, '0');
+    
+    let formattedTime = '';
+    if (hours > 0) formattedTime += `${pad(hours)}:`;
+    formattedTime += `${pad(minutes)}:${pad(seconds)}.${pad(milliseconds)}`;
+    
+    return formattedTime;
+  };
 
   const startRecording = async () => {
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-      setAudioUrl("");
-    }
     setError("");
-    setRecording(true);
+    setPreparing(true); // Устанавливаем состояние подготовки
+    setRecordingTime(0);
     try {
       // Всегда режим both: микрофон + вкладка
       const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Здесь пользователь выбирает, с какой вкладкой поделиться
       const tabStream = await navigator.mediaDevices.getDisplayMedia({ audio: true });
+      
       streamsRef.current = { mic: micStream, tab: tabStream };
 
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -55,8 +115,8 @@ export default function AudioRecorder({ onAudioReady }) {
         mimeType = "";
       }
       if (finalStream.getAudioTracks().length === 0) {
-        setError("В объединённом потоке нет аудиотреков!");
-        setRecording(false);
+        setError("No audio tracks found in the stream!");
+        setPreparing(false);
         return;
       }
       const mediaRecorder = new MediaRecorder(finalStream, { mimeType });
@@ -65,6 +125,15 @@ export default function AudioRecorder({ onAudioReady }) {
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) recordedChunksRef.current.push(e.data);
       };
+      
+      // Обработчик начала записи
+      mediaRecorder.onstart = () => {
+        // Устанавливаем время начала записи ТОЛЬКО в момент старта медиарекордера
+        startTimeRef.current = Date.now();
+        setRecording(true);
+        setPreparing(false); // Подготовка завершена
+      };
+      
       mediaRecorder.onstop = async () => {
         const blob = new Blob(recordedChunksRef.current, { type: "audio/webm" });
         const tempWebmUrl = URL.createObjectURL(blob);
@@ -94,10 +163,10 @@ export default function AudioRecorder({ onAudioReady }) {
         const mp3Blob = new Blob(mp3Data, { type: "audio/mp3" });
         const mp3Url = URL.createObjectURL(mp3Blob);
 
-        setAudioUrl(mp3Url);
         const file = new File([mp3Blob], "recording.mp3", { type: "audio/mp3" });
         onAudioReady(file, mp3Url);
         setRecording(false);
+        setPreparing(false);
 
         // Чистим webmUrl
         if (webmUrl) {
@@ -106,10 +175,12 @@ export default function AudioRecorder({ onAudioReady }) {
         }
       };
 
+      // Запускаем запись после настройки всех обработчиков
       mediaRecorder.start();
     } catch (e) {
-      setError("Ошибка доступа к аудио: " + e.message);
+      setError("Error accessing audio: " + e.message);
       setRecording(false);
+      setPreparing(false);
     }
   };
 
@@ -124,26 +195,18 @@ export default function AudioRecorder({ onAudioReady }) {
   };
 
   return (
-    <Box textAlign="center">
-      {!recording ? (
-        <Button variant="contained" startIcon={<MicIcon />} onClick={startRecording}>
-          Записать аудио
-        </Button>
+    <div id={id}>
+      {!recording && !preparing ? (
+        <button onClick={startRecording}>Record</button>
       ) : (
-        <>
-          <Button variant="contained" color="error" startIcon={<StopIcon />} onClick={stopRecording}>
-            Остановить запись
-          </Button>
-          <Typography color="error" sx={{ mt: 1 }}>
-            ● Идёт запись...
-          </Typography>
-        </>
+        <button onClick={stopRecording}>Stop</button>
       )}
-      {error && (
-        <Typography color="error" sx={{ mt: 2 }}>
-          {error}
-        </Typography>
+      {error && <div style={{ color: 'red' }}>{error}</div>}
+      {recording && (
+        <div className="recording-time">
+          {formatTime(recordingTime)}
+        </div>
       )}
-    </Box>
+    </div>
   );
-}
+});

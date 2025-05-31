@@ -1,7 +1,8 @@
 import React from "react";
-import { Box, Typography, TextField, Button, Stack } from "@mui/material";
+import { Box, Typography, IconButton, Grid, Paper } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DownloadIcon from "@mui/icons-material/Download";
+import { useTranslation } from "react-i18next";
 
 function downloadText(text, filename) {
   const blob = new Blob([text], { type: "text/plain" });
@@ -10,23 +11,97 @@ function downloadText(text, filename) {
   a.href = url;
   a.download = filename;
   a.click();
+  URL.revokeObjectURL(url);
 }
 
-export default function TranscriptSummaryResult({ transcript, summary, getTimestampedName }) {
+export default function TranscriptSummaryResult({ transcript, summary, recordTimestamp }) {
+  const { t } = useTranslation();
+  
+  const getTimestampedName = (suffix, ext) => {
+    const now = recordTimestamp ? new Date(recordTimestamp) : new Date();
+    const pad = (n) => n.toString().padStart(2, "0");
+    const yyyy = now.getFullYear();
+    const mm = pad(now.getMonth() + 1);
+    const dd = pad(now.getDate());
+    const hh = pad(now.getHours());
+    const min = pad(now.getMinutes());
+    return `${yyyy}-${mm}-${dd}-${hh}-${min}-${suffix}.${ext}`;
+  };
+
+  const handleCopyTranscript = () => {
+    navigator.clipboard.writeText(transcript);
+  };
+
+  const handleDownloadTranscript = () => {
+    downloadText(transcript, getTimestampedName("transcript", "txt"));
+  };
+
+  const handleCopySummary = () => {
+    navigator.clipboard.writeText(summary);
+  };
+
+  const handleDownloadSummary = () => {
+    downloadText(summary, getTimestampedName("summary", "txt"));
+  };
+
   return (
-    <Box bgcolor="white" p={2} borderRadius={1} boxShadow={1}>
-      <Typography variant="h6" sx={{ mt: 2 }}>Транскрипт</Typography>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <TextField value={transcript} multiline fullWidth minRows={4} />
-        <Button onClick={() => navigator.clipboard.writeText(transcript)}><ContentCopyIcon /></Button>
-        <Button onClick={() => downloadText(transcript, getTimestampedName ? getTimestampedName("transcript", "txt") : "transcript.txt")}><DownloadIcon /></Button>
-      </Stack>
-      <Typography variant="h6" sx={{ mt: 2 }}>Саммари</Typography>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <TextField value={summary} multiline fullWidth minRows={4} />
-        <Button onClick={() => navigator.clipboard.writeText(summary)}><ContentCopyIcon /></Button>
-        <Button onClick={() => downloadText(summary, getTimestampedName ? getTimestampedName("summary", "txt") : "summary.txt")}><DownloadIcon /></Button>
-      </Stack>
-    </Box>
+    <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid item xs={12} md={6}>
+        <Paper sx={{ p: 3, borderRadius: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', height: '100%' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+              {t('transcription.title')}
+            </Typography>
+            <Box>
+              <IconButton onClick={handleCopyTranscript} size="small" sx={{ mr: 1 }}>
+                <ContentCopyIcon fontSize="small" />
+              </IconButton>
+              <IconButton onClick={handleDownloadTranscript} size="small">
+                <DownloadIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+          <Box sx={{ 
+            p: 2, 
+            bgcolor: 'action.hover', 
+            borderRadius: 1, 
+            minHeight: '200px',
+            overflow: 'auto',
+            fontSize: '0.9rem',
+            whiteSpace: 'pre-wrap'
+          }}>
+            {transcript}
+          </Box>
+        </Paper>
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <Paper sx={{ p: 3, borderRadius: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', height: '100%' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+              {t('transcription.summary')}
+            </Typography>
+            <Box>
+              <IconButton onClick={handleCopySummary} size="small" sx={{ mr: 1 }}>
+                <ContentCopyIcon fontSize="small" />
+              </IconButton>
+              <IconButton onClick={handleDownloadSummary} size="small">
+                <DownloadIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+          <Box sx={{ 
+            p: 2, 
+            bgcolor: 'action.hover', 
+            borderRadius: 1,
+            minHeight: '200px',
+            overflow: 'auto',
+            fontSize: '0.9rem',
+            whiteSpace: 'pre-wrap'
+          }}>
+            {summary}
+          </Box>
+        </Paper>
+      </Grid>
+    </Grid>
   );
 }

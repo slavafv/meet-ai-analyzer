@@ -1,0 +1,60 @@
+{
+  "app": {
+    "title": "Process Audio",
+    "description": "Record audio or upload a file for transcription and summary.",
+    "theme": {
+      "light": "Light theme",
+      "dark": "Dark theme",
+      "system": "System theme"
+    }
+  },
+  "controls": {
+    "record": "Record Audio",
+    "recording": "Recording: {{time}}",
+    "stopRecording": "Stop Recording ({{time}})",
+    "preparingRecord": "Select tab to record...",
+    "upload": "Upload Audio File"
+  },
+  "transcription": {
+    "title": "Full Transcription",
+    "inProgress": "Transcribing audio...",
+    "summary": "Summary",
+    "creatingSum": "Creating summary...",
+    "updatingSum": "Creating new summary...",
+    "sumUpdated": "Summary updated!",
+    "completed": "Done!",
+    "error": "Error: {{message}}"
+  },
+  "summaryOptions": {
+    "language": "Language",
+    "russian": "Russian",
+    "english": "English",
+    "summaryType": "Summary Type",
+    "customPrompt": "Custom prompt",
+    "types": {
+      "short": "Short summary",
+      "regular": "Summary for HR",
+      "custom": "Custom summary"
+    }
+  },
+  "buttons": {
+    "transcribe": "Transcribe and Make Summary",
+    "redoAll": "Redo Transcription & Summary",
+    "updateSummary": "Update Summary Only"
+  },
+  "player": {
+    "download": "Download",
+    "downloadDisabled": "Download unavailable for uploaded files"
+  },
+  "confirm": {
+    "title": "Confirmation",
+    "message": "Previous data will be permanently erased, continue?",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Interface Language",
+    "theme": "Theme"
+  }
+}

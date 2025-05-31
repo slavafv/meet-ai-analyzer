@@ -18,10 +18,12 @@
     "axios": "^1.9.0",
     "form-data": "^4.0.2",
     "formidable": "^3.5.4",
+    "i18next": "^25.2.1",
     "lamejs": "github:zhuker/lamejs",
     "node-fetch": "^3.3.2",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-i18next": "^15.5.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
