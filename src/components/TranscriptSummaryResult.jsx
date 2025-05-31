@@ -45,7 +45,7 @@ export default function TranscriptSummaryResult({ transcript, summary, recordTim
   };
 
   return (
-    <Grid container spacing={3} sx={{ mb: 4 }}>
+    <Grid container spacing={3} sx={{ mb: 4 }} flexDirection={'column'}>
       <Grid item xs={12} md={6}>
         <Paper sx={{ 
           p: 3, 
