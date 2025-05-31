@@ -1,12 +1,15 @@
 import React from "react";
-import { LinearProgress, Typography, Box, CircularProgress } from "@mui/material";
+import { LinearProgress, Typography, Box, CircularProgress, useTheme } from "@mui/material";
 
 export default function ProgressStatus({ status, progress, loading }) {
+  const theme = useTheme();
+  const isDarkMode = theme.palette.mode === 'dark';
+
   return (
     <Box sx={{ mt: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
-        {loading && <CircularProgress size={20} sx={{ mr: 2, color: '#6366f1' }} />}
-        <Typography variant="body2" sx={{ color: '#666' }}>{status}</Typography>
+        {loading && <CircularProgress size={20} sx={{ mr: 2, color: theme.palette.primary.main }} />}
+        <Typography variant="body2">{status}</Typography>
       </Box>
       {loading && (
         <LinearProgress 
@@ -16,9 +19,9 @@ export default function ProgressStatus({ status, progress, loading }) {
             mt: 1, 
             height: 6, 
             borderRadius: 3,
-            bgcolor: '#e0e0fa',
+            bgcolor: isDarkMode ? 'rgba(99, 102, 241, 0.2)' : '#e0e0fa',
             '.MuiLinearProgress-bar': {
-              bgcolor: '#6366f1',
+              bgcolor: theme.palette.primary.main,
               borderRadius: 3
             }
           }} 

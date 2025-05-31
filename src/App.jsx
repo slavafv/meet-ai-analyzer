@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Container, Typography, Box, Paper, Dialog, DialogTitle, DialogContent, DialogActions, Button } from "@mui/material";
+import { Container, Typography, Box, Paper, Dialog, DialogTitle, DialogContent, DialogActions, Button, useTheme } from "@mui/material";
 import AudioRecorder from "./components/AudioRecorder";
 import FileUploader from "./components/FileUploader";
 import ProgressStatus from "./components/ProgressStatus";
@@ -28,6 +28,8 @@ function getTimestampedName(suffix, ext, timestamp) {
 
 export default function App() {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const isDarkMode = theme.palette.mode === 'dark';
   const [audioFile, setAudioFile] = useState(null);
   const [audioUrl, setAudioUrl] = useState("");
   const [audioName, setAudioName] = useState("");
@@ -272,7 +274,13 @@ export default function App() {
         </div>
 
         {loading && (
-          <Box sx={{ p: 2, my: 2, bgcolor: '#fff8f8', borderRadius: 2, border: '1px solid #f8e0e0' }}>
+          <Box sx={{ 
+            p: 2, 
+            my: 2, 
+            bgcolor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#fff8f8', 
+            borderRadius: 2, 
+            border: `1px solid ${isDarkMode ? 'rgba(99, 102, 241, 0.2)' : '#f8e0e0'}`
+          }}>
             <ProgressStatus status={status} progress={progress} loading={loading} />
           </Box>
         )}

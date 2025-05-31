@@ -47,7 +47,14 @@ export default function TranscriptSummaryResult({ transcript, summary, recordTim
   return (
     <Grid container spacing={3} sx={{ mb: 4 }}>
       <Grid item xs={12} md={6}>
-        <Paper sx={{ p: 3, borderRadius: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', height: '100%' }}>
+        <Paper sx={{ 
+          p: 3, 
+          borderRadius: 2, 
+          boxShadow: '0 2px 10px rgba(0,0,0,0.05)', 
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
               {t('transcription.title')}
@@ -68,14 +75,23 @@ export default function TranscriptSummaryResult({ transcript, summary, recordTim
             minHeight: '200px',
             overflow: 'auto',
             fontSize: '0.9rem',
-            whiteSpace: 'pre-wrap'
+            whiteSpace: 'pre-wrap',
+            flex: 1,
+            width: '100%'
           }}>
-            {transcript}
+            {transcript || '\u00A0'}
           </Box>
         </Paper>
       </Grid>
       <Grid item xs={12} md={6}>
-        <Paper sx={{ p: 3, borderRadius: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', height: '100%' }}>
+        <Paper sx={{ 
+          p: 3, 
+          borderRadius: 2, 
+          boxShadow: '0 2px 10px rgba(0,0,0,0.05)', 
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
               {t('transcription.summary')}
@@ -96,9 +112,11 @@ export default function TranscriptSummaryResult({ transcript, summary, recordTim
             minHeight: '200px',
             overflow: 'auto',
             fontSize: '0.9rem',
-            whiteSpace: 'pre-wrap'
+            whiteSpace: 'pre-wrap',
+            flex: 1,
+            width: '100%'
           }}>
-            {summary}
+            {summary || '\u00A0'}
           </Box>
         </Paper>
       </Grid>
