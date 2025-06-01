@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Box, Typography, IconButton, Grid, Paper, Snackbar, Alert } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DownloadIcon from "@mui/icons-material/Download";
@@ -14,11 +14,39 @@ function downloadText(text, filename) {
   URL.revokeObjectURL(url);
 }
 
-export default function TranscriptSummaryResult({ transcript, summary, recordTimestamp }) {
+export default function TranscriptSummaryResult({ 
+  transcript, 
+  summary, 
+  recordTimestamp,
+  scrollTarget = 'transcript' // По умолчанию скроллим к транскрипции
+}) {
   const { t } = useTranslation();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarKey, setSnackbarKey] = useState(0);
+  const resultRef = useRef(null);
+  const transcriptRef = useRef(null);
+  const summaryRef = useRef(null);
+  
+  // Эффект для автоскролла к результатам
+  useEffect(() => {
+    if (!transcript) return;
+    
+    // Добавляем небольшую задержку для надежности
+    setTimeout(() => {
+      if (scrollTarget === 'summary' && summaryRef.current) {
+        summaryRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start'
+        });
+      } else if (transcriptRef.current) {
+        transcriptRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start'
+        });
+      }
+    }, 300);
+  }, [transcript, summary, scrollTarget]);
   
   const getTimestampedName = (suffix, ext) => {
     const now = recordTimestamp ? new Date(recordTimestamp) : new Date();
@@ -64,8 +92,8 @@ export default function TranscriptSummaryResult({ transcript, summary, recordTim
 
   return (
     <>
-      <Grid container spacing={3} sx={{ mb: 4 }} flexDirection={'column'}>
-        <Grid item xs={12} md={6}>
+      <Grid container spacing={3} sx={{ mb: 4 }} flexDirection={'column'} ref={resultRef}>
+        <Grid item xs={12} md={6} ref={transcriptRef}>
           <Paper sx={{ 
             p: 3, 
             borderRadius: 2, 
@@ -102,7 +130,7 @@ export default function TranscriptSummaryResult({ transcript, summary, recordTim
             </Box>
           </Paper>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} ref={summaryRef}>
           <Paper sx={{ 
             p: 3, 
             borderRadius: 2, 

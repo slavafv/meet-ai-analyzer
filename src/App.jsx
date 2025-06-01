@@ -49,6 +49,7 @@ export default function App() {
   const [isRecordedAudio, setIsRecordedAudio] = useState(false); // Track if audio was recorded or uploaded
   const [isMicMuted, setIsMicMuted] = useState(false); // Состояние отключения микрофона
   const [isMobileDevice, setIsMobileDevice] = useState(false); // Определение мобильного устройства
+  const [scrollTarget, setScrollTarget] = useState('transcript'); // Цель для автоскролла
   const audioRecorderRef = useRef(null);
   const timerRef = useRef(null);
 
@@ -206,6 +207,7 @@ export default function App() {
     setLoading(true);
     setStatus(t('transcription.inProgress'));
     setProgress(0);
+    setScrollTarget('transcript'); // Скролл к транскрипции после транскрибирования
     try {
       let prompt = SUMMARY_PRESETS[summaryType];
 
@@ -237,6 +239,7 @@ export default function App() {
     setLoading(true);
     setStatus(t('transcription.updatingSum'));
     setProgress(100); // Сразу показываем полный прогресс, так как транскрипция уже есть
+    setScrollTarget('summary'); // Скролл к саммари после обновления саммари
     
     try {
       let prompt = SUMMARY_PRESETS[summaryType];
@@ -324,18 +327,6 @@ export default function App() {
             }}
           />
         </div>
-
-        {loading && (
-          <Box sx={{ 
-            p: 2, 
-            my: 2, 
-            bgcolor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#fff8f8', 
-            borderRadius: 2, 
-            border: `1px solid ${isDarkMode ? 'rgba(99, 102, 241, 0.2)' : '#f8e0e0'}`
-          }}>
-            <ProgressStatus status={status} progress={progress} loading={loading} />
-          </Box>
-        )}
       </Paper>
 
       {audioFile && !isRecording && !isPreparing && (
@@ -362,6 +353,18 @@ export default function App() {
             disabled={loading}
             hasTranscript={!!result.transcript}
           />
+
+          {loading && (
+            <Box sx={{ 
+              p: 2, 
+              mt: 3, 
+              bgcolor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#fff8f8', 
+              borderRadius: 2, 
+              border: `1px solid ${isDarkMode ? 'rgba(99, 102, 241, 0.2)' : '#f8e0e0'}`
+            }}>
+              <ProgressStatus status={status} progress={progress} loading={loading} />
+            </Box>
+          )}
         </Paper>
       )}
 
@@ -370,6 +373,7 @@ export default function App() {
           transcript={result.transcript}
           summary={result.summary}
           recordTimestamp={recordTimestamp}
+          scrollTarget={scrollTarget}
         />
       )}
 
