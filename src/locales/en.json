@@ -6,13 +6,15 @@
       "light": "Light theme",
       "dark": "Dark theme",
       "system": "System theme"
-    }
+    },
+    "mobileNotice": "On mobile devices, recording will only capture audio from your microphone. Tab audio recording is not supported on mobile browsers."
   },
   "controls": {
     "record": "Record Audio",
     "recording": "Recording: {{time}}",
     "stopRecording": "Stop Recording ({{time}})",
     "preparingRecord": "Select tab to record...",
+    "preparingMobileRecord": "Preparing to record...",
     "upload": "Upload Audio File",
     "pauseRecording": "Pause Recording",
     "resumeRecording": "Resume Recording",

@@ -48,6 +48,7 @@ export default function App() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [isRecordedAudio, setIsRecordedAudio] = useState(false); // Track if audio was recorded or uploaded
   const [isMicMuted, setIsMicMuted] = useState(false); // Состояние отключения микрофона
+  const [isMobileDevice, setIsMobileDevice] = useState(false); // Определение мобильного устройства
   const audioRecorderRef = useRef(null);
   const timerRef = useRef(null);
 
@@ -91,6 +92,11 @@ export default function App() {
     const preparingCheckInterval = setInterval(() => {
       if (audioRecorderRef.current && audioRecorderRef.current.isPreparing) {
         setIsPreparing(audioRecorderRef.current.isPreparing());
+      }
+      
+      // Проверяем, является ли устройство мобильным
+      if (audioRecorderRef.current && audioRecorderRef.current.isMobileDevice) {
+        setIsMobileDevice(audioRecorderRef.current.isMobileDevice());
       }
     }, 100);
 
@@ -262,11 +268,26 @@ export default function App() {
           {t('app.description')}
         </Typography>
         
+        {isMobileDevice && (
+          <Box sx={{ 
+            p: 2, 
+            mb: 3, 
+            bgcolor: isDarkMode ? 'rgba(246, 176, 0, 0.1)' : '#fff8e1', 
+            borderRadius: 2, 
+            border: `1px solid ${isDarkMode ? 'rgba(246, 176, 0, 0.2)' : '#ffe57f'}`
+          }}>
+            <Typography variant="body2" color={isDarkMode ? 'warning.light' : 'warning.dark'}>
+              {t('app.mobileNotice')}
+            </Typography>
+          </Box>
+        )}
+        
         <AudioControls 
           isRecording={isRecording}
           isPreparing={isPreparing}
           isPaused={isPaused}
           isMicMuted={isMicMuted}
+          isMobileDevice={isMobileDevice}
           onRecordClick={handleRecordClick}
           onPauseClick={handlePauseClick}
           onResumeClick={handleResumeClick}

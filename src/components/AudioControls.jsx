@@ -26,6 +26,7 @@ export default function AudioControls({
   isPreparing = false,
   isPaused = false,
   isMicMuted = false,
+  isMobileDevice = false,
   onRecordClick, 
   onUploadClick,
   onPauseClick,
@@ -65,7 +66,7 @@ export default function AudioControls({
       return (
         <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'center' }}>
           <CircularProgress size={18} color="inherit" sx={{ mr: 1 }} />
-          <span>{t('controls.preparingRecord')}</span>
+          <span>{isMobileDevice ? t('controls.preparingMobileRecord') : t('controls.preparingRecord')}</span>
         </Box>
       );
     }
@@ -171,7 +172,7 @@ export default function AudioControls({
         </Box>
         
         {/* Круглая кнопка микрофона */}
-        {isRecording && !isPreparing && (
+        {isRecording && !isPreparing && !isMobileDevice && (
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <IconButton 
               size="large"

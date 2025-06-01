@@ -1,6 +1,10 @@
 import React, { useRef, useState, useEffect, forwardRef } from "react";
 import lamejs from "lamejs";
 
+// Функция для тестирования мобильного режима
+// Раскомментируйте эту строку, чтобы имитировать отсутствие getDisplayMedia
+// window.TEST_MOBILE_MODE = true;
+
 export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecordingChange }, ref) {
   const [recording, setRecording] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -17,10 +21,29 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
   const pauseStartTimeRef = useRef(null); // Время начала паузы
   // Состояние подготовки к записи - когда кнопка нажата, но запись еще не началась
   const [preparing, setPreparing] = useState(false);
+  // Проверка, поддерживается ли getDisplayMedia
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
   
   // Аудио контекст и узлы для управления звуком
   const audioContextRef = useRef(null);
   const micGainNodeRef = useRef(null);
+
+  // Проверяем поддержку getDisplayMedia при монтировании
+  useEffect(() => {
+    const checkDisplayMediaSupport = () => {
+      // Проверяем тестовый режим
+      if (window.TEST_MOBILE_MODE) {
+        setIsMobileDevice(true);
+        return false;
+      }
+      
+      const isSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+      setIsMobileDevice(!isSupported);
+      return isSupported;
+    };
+    
+    checkDisplayMediaSupport();
+  }, []);
 
   // Expose methods to parent component via ref
   useEffect(() => {
@@ -34,10 +57,11 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
         getRecordingTime: () => recordingTime,
         isPreparing: () => preparing,
         isPaused: () => paused,
-        isMicMuted: () => micMuted
+        isMicMuted: () => micMuted,
+        isMobileDevice: () => isMobileDevice
       };
     }
-  }, [ref, recordingTime, preparing, paused, micMuted]);
+  }, [ref, recordingTime, preparing, paused, micMuted, isMobileDevice]);
 
   // Notify parent when recording state changes
   useEffect(() => {
@@ -160,48 +184,64 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
     pauseStartTimeRef.current = null;
     
     try {
-      // Всегда режим both: микрофон + вкладка
+      // Всегда запрашиваем доступ к микрофону
       const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      let finalStream;
       
-      // Здесь пользователь выбирает, с какой вкладкой поделиться
-      const tabStream = await navigator.mediaDevices.getDisplayMedia({ audio: true });
-      
-      streamsRef.current = { mic: micStream, tab: tabStream };
-
-      // Создаем аудио контекст и сохраняем его в ref
+      // Создаем аудио контекст
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       audioContextRef.current = audioCtx;
-      
       const dest = audioCtx.createMediaStreamDestination();
-
-      // Создаем источники для микрофона и вкладки
+      
+      // Создаем источник для микрофона
       const micSource = audioCtx.createMediaStreamSource(micStream);
-      const tabSource = audioCtx.createMediaStreamSource(tabStream);
-
+      
       // Создаем узел усиления для микрофона
       const micGainNode = audioCtx.createGain();
       micGainNodeRef.current = micGainNode;
       micGainNode.gain.value = 1; // Начальное значение (микрофон включен)
-
+      
       // Подключаем микрофон через узел усиления
       micSource.connect(micGainNode);
       micGainNode.connect(dest);
-      
-      // Подключаем вкладку напрямую
-      tabSource.connect(dest);
 
-      const finalStream = dest.stream;
+      // Проверяем, поддерживается ли getDisplayMedia
+      if (!isMobileDevice && !window.TEST_MOBILE_MODE) {
+        try {
+          // Запрашиваем доступ к звуку вкладки
+          const tabStream = await navigator.mediaDevices.getDisplayMedia({ audio: true });
+          streamsRef.current = { mic: micStream, tab: tabStream };
+          
+          // Создаем источник для звука вкладки
+          const tabSource = audioCtx.createMediaStreamSource(tabStream);
+          
+          // Подключаем вкладку напрямую
+          tabSource.connect(dest);
+          
+          finalStream = dest.stream;
+        } catch (displayError) {
+          console.warn("Couldn't access display media, falling back to microphone only:", displayError);
+          streamsRef.current = { mic: micStream };
+          finalStream = dest.stream;
+        }
+      } else {
+        // На мобильных устройствах используем только микрофон
+        streamsRef.current = { mic: micStream };
+        finalStream = dest.stream;
+      }
 
       recordedChunksRef.current = [];
       let mimeType = "audio/webm";
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         mimeType = "";
       }
+      
       if (finalStream.getAudioTracks().length === 0) {
         setError("No audio tracks found in the stream!");
         setPreparing(false);
         return;
       }
+      
       const mediaRecorder = new MediaRecorder(finalStream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
 
