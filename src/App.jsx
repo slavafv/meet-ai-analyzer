@@ -50,6 +50,7 @@ export default function App() {
   const [isMicMuted, setIsMicMuted] = useState(false); // Состояние отключения микрофона
   const [isMobileDevice, setIsMobileDevice] = useState(false); // Определение мобильного устройства
   const [scrollTarget, setScrollTarget] = useState('transcript'); // Цель для автоскролла
+  const [shouldScrollToTranscribe, setShouldScrollToTranscribe] = useState(false); // Флаг для скролла к кнопке транскрибирования
   const audioRecorderRef = useRef(null);
   const timerRef = useRef(null);
   const transcribeButtonRef = useRef(null); // Ref для кнопки транскрибирования
@@ -125,6 +126,16 @@ export default function App() {
     localStorage.setItem('customPrompt', customPrompt);
   }, [customPrompt]);
 
+  // Эффект для автоскролла к кнопке транскрибирования
+  useEffect(() => {
+    if (shouldScrollToTranscribe && !isRecording && audioFile && transcribeButtonRef.current) {
+      setTimeout(() => {
+        transcribeButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setShouldScrollToTranscribe(false); // Сбрасываем флаг после скролла
+      }, 300);
+    }
+  }, [shouldScrollToTranscribe, isRecording, audioFile]);
+
   // Имя для скачивания аудио
   const getDownloadName = () => getTimestampedName("record", "mp3", recordTimestamp);
 
@@ -158,16 +169,14 @@ export default function App() {
   };
 
   const handleRecordingChange = (recording, paused, micMuted) => {
+    // Если запись была остановлена, устанавливаем флаг для скролла
+    if (isRecording && !recording) {
+      setShouldScrollToTranscribe(true);
+    }
+    
     setIsRecording(recording);
     setIsPaused(paused);
     setIsMicMuted(micMuted);
-    
-    // Если запись остановлена, скроллим к кнопке транскрибирования
-    if (!recording && audioFile && transcribeButtonRef.current) {
-      setTimeout(() => {
-        transcribeButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 300);
-    }
   };
 
   const handleRecordClick = () => {
@@ -332,6 +341,7 @@ export default function App() {
               setAudioName(file.name);
               setRecordTimestamp(Date.now());
               setIsRecordedAudio(false); // Mark as uploaded audio
+              setShouldScrollToTranscribe(true); // Добавляем автоскролл при загрузке файла
             }}
           />
         </div>
