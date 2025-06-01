@@ -52,6 +52,7 @@ export default function App() {
   const [scrollTarget, setScrollTarget] = useState('transcript'); // Цель для автоскролла
   const audioRecorderRef = useRef(null);
   const timerRef = useRef(null);
+  const transcribeButtonRef = useRef(null); // Ref для кнопки транскрибирования
 
   // Загрузка сохраненных настроек
   useEffect(() => {
@@ -160,6 +161,13 @@ export default function App() {
     setIsRecording(recording);
     setIsPaused(paused);
     setIsMicMuted(micMuted);
+    
+    // Если запись остановлена, скроллим к кнопке транскрибирования
+    if (!recording && audioFile && transcribeButtonRef.current) {
+      setTimeout(() => {
+        transcribeButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
   };
 
   const handleRecordClick = () => {
@@ -347,17 +355,10 @@ export default function App() {
             setCustomPrompt={setCustomPrompt}
           />
 
-          <TranscribeButton 
-            onClick={handleTranscribe}
-            onSummaryOnly={handleSummaryOnly}
-            disabled={loading}
-            hasTranscript={!!result.transcript}
-          />
-
           {loading && (
             <Box sx={{ 
               p: 2, 
-              mt: 3, 
+              mb: 3, 
               bgcolor: isDarkMode ? 'rgba(99, 102, 241, 0.1)' : '#fff8f8', 
               borderRadius: 2, 
               border: `1px solid ${isDarkMode ? 'rgba(99, 102, 241, 0.2)' : '#f8e0e0'}`
@@ -365,6 +366,15 @@ export default function App() {
               <ProgressStatus status={status} progress={progress} loading={loading} />
             </Box>
           )}
+
+          <Box ref={transcribeButtonRef}>
+            <TranscribeButton 
+              onClick={handleTranscribe}
+              onSummaryOnly={handleSummaryOnly}
+              disabled={loading}
+              hasTranscript={!!result.transcript}
+            />
+          </Box>
         </Paper>
       )}
 

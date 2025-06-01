@@ -16,7 +16,8 @@ export default function ProgressStatus({ status, progress, loading }) {
           variant="determinate" 
           value={progress} 
           sx={{ 
-            mt: 1, 
+            mt: 3,
+            mb: 1, 
             height: 6, 
             borderRadius: 3,
             bgcolor: isDarkMode ? 'rgba(99, 102, 241, 0.2)' : '#e0e0fa',

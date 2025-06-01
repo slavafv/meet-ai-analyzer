@@ -19,7 +19,7 @@ export default function TranscribeButton({
         disabled={disabled}
         onClick={onClick}
         sx={{ 
-          mt: 4,
+          mt: 1,
           bgcolor: theme.palette.primary.main,
           borderRadius: 1,
           p: 1.5,
@@ -38,16 +38,16 @@ export default function TranscribeButton({
   return (
     <Box sx={{ 
       display: 'flex', 
+      flexDirection: { xs: 'column', sm: 'row' },
       gap: 2, 
       mt: 4 
     }}>
       <Button
         variant="contained"
+        fullWidth
         disabled={disabled}
         onClick={onClick}
         sx={{ 
-          flex: 1,
-          bgcolor: theme.palette.primary.main,
           borderRadius: 1,
           p: 1.5,
           textTransform: 'none',
@@ -61,10 +61,10 @@ export default function TranscribeButton({
       </Button>
       <Button
         variant="outlined"
+        fullWidth
         disabled={disabled}
         onClick={onSummaryOnly}
         sx={{ 
-          flex: 1,
           borderColor: theme.palette.primary.main,
           color: theme.palette.primary.main,
           borderRadius: 1,

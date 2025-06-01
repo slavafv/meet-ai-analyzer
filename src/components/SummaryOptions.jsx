@@ -1,5 +1,5 @@
 import React from "react";
-import { FormControl, InputLabel, Select, MenuItem, TextField, Box } from "@mui/material";
+import { FormControl, InputLabel, Select, MenuItem, TextField, Box, Divider } from "@mui/material";
 import { SUMMARY_KEYS } from "../constants";
 import { useTranslation } from "react-i18next";
 
@@ -8,8 +8,13 @@ export default function SummaryOptions({ lang, setLang, summaryType, setSummaryT
   
   return (
     <Box sx={{ mt: 3 }}>
-      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-        <FormControl sx={{ flex: 1 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' }, 
+        gap: 2, 
+        mb: 2 
+      }}>
+        <FormControl fullWidth>
           <InputLabel id="language-label">{t('summaryOptions.language')}</InputLabel>
           <Select
             labelId="language-label"
@@ -22,7 +27,7 @@ export default function SummaryOptions({ lang, setLang, summaryType, setSummaryT
           </Select>
         </FormControl>
         
-        <FormControl sx={{ flex: 1 }}>
+        <FormControl fullWidth>
           <InputLabel id="summary-type-label">{t('summaryOptions.summaryType')}</InputLabel>
           <Select
             labelId="summary-type-label"
@@ -50,6 +55,8 @@ export default function SummaryOptions({ lang, setLang, summaryType, setSummaryT
           sx={{ mt: 2 }}
         />
       )}
+      
+      <Divider sx={{ my: 3 }} />
     </Box>
   );
 }
