@@ -13,7 +13,12 @@
     "recording": "Recording: {{time}}",
     "stopRecording": "Stop Recording ({{time}})",
     "preparingRecord": "Select tab to record...",
-    "upload": "Upload Audio File"
+    "upload": "Upload Audio File",
+    "pauseRecording": "Pause Recording",
+    "resumeRecording": "Resume Recording",
+    "pausedRecording": "Paused: {{time}}",
+    "muteMic": "Mute Microphone",
+    "unmuteMic": "Unmute Microphone"
   },
   "transcription": {
     "title": "Full Transcription",

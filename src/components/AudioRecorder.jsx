@@ -3,6 +3,8 @@ import lamejs from "lamejs";
 
 export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecordingChange }, ref) {
   const [recording, setRecording] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [micMuted, setMicMuted] = useState(false); // Состояние мьюта микрофона
   const [error, setError] = useState("");
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef(null);
@@ -11,8 +13,14 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
   const [webmUrl, setWebmUrl] = useState(null);
   const timerRef = useRef(null);
   const startTimeRef = useRef(null);
+  const pausedTimeRef = useRef(0); // Общее время на паузе
+  const pauseStartTimeRef = useRef(null); // Время начала паузы
   // Состояние подготовки к записи - когда кнопка нажата, но запись еще не началась
   const [preparing, setPreparing] = useState(false);
+  
+  // Аудио контекст и узлы для управления звуком
+  const audioContextRef = useRef(null);
+  const micGainNodeRef = useRef(null);
 
   // Expose methods to parent component via ref
   useEffect(() => {
@@ -20,18 +28,23 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
       ref.current = {
         startRecording,
         stopRecording,
+        pauseRecording,
+        resumeRecording,
+        toggleMicMute,
         getRecordingTime: () => recordingTime,
-        isPreparing: () => preparing
+        isPreparing: () => preparing,
+        isPaused: () => paused,
+        isMicMuted: () => micMuted
       };
     }
-  }, [ref, recordingTime, preparing]);
+  }, [ref, recordingTime, preparing, paused, micMuted]);
 
   // Notify parent when recording state changes
   useEffect(() => {
     if (onRecordingChange) {
-      onRecordingChange(recording);
+      onRecordingChange(recording, paused, micMuted);
     }
-  }, [recording, onRecordingChange]);
+  }, [recording, paused, micMuted, onRecordingChange]);
 
   // Очистка objectURL при размонтировании компонента
   useEffect(() => {
@@ -42,14 +55,18 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      // Закрываем аудио контекст при размонтировании
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(console.error);
+      }
     };
   }, [webmUrl]);
 
   // Обновление таймера только во время активной записи
   useEffect(() => {
-    if (recording && startTimeRef.current) {
+    if (recording && !paused && startTimeRef.current) {
       timerRef.current = setInterval(() => {
-        const elapsedTime = Date.now() - startTimeRef.current;
+        const elapsedTime = Date.now() - startTimeRef.current - pausedTimeRef.current;
         setRecordingTime(elapsedTime);
       }, 10); // Обновляем каждые 10мс для плавности
     } else {
@@ -59,6 +76,8 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
       }
       if (!recording) {
         setRecordingTime(0);
+        pausedTimeRef.current = 0;
+        pauseStartTimeRef.current = null;
       }
     }
 
@@ -67,7 +86,7 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
         clearInterval(timerRef.current);
       }
     };
-  }, [recording]);
+  }, [recording, paused]);
 
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -85,10 +104,61 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
     return formattedTime;
   };
 
+  // Функция для приостановки записи
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      // Сохраняем время начала паузы
+      pauseStartTimeRef.current = Date.now();
+      
+      // Приостанавливаем запись
+      mediaRecorderRef.current.pause();
+      
+      // Обновляем состояние
+      setPaused(true);
+    }
+  };
+
+  // Функция для возобновления записи
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
+      // Вычисляем время, проведенное на паузе
+      if (pauseStartTimeRef.current) {
+        pausedTimeRef.current += Date.now() - pauseStartTimeRef.current;
+        pauseStartTimeRef.current = null;
+      }
+      
+      // Возобновляем запись
+      mediaRecorderRef.current.resume();
+      
+      // Обновляем состояние
+      setPaused(false);
+    }
+  };
+
+  // Функция для включения/отключения микрофона
+  const toggleMicMute = () => {
+    if (!micGainNodeRef.current) return;
+    
+    if (micMuted) {
+      // Включаем микрофон (устанавливаем коэффициент усиления 1)
+      micGainNodeRef.current.gain.value = 1;
+      setMicMuted(false);
+    } else {
+      // Отключаем микрофон (устанавливаем коэффициент усиления 0)
+      micGainNodeRef.current.gain.value = 0;
+      setMicMuted(true);
+    }
+  };
+
   const startRecording = async () => {
     setError("");
     setPreparing(true); // Устанавливаем состояние подготовки
     setRecordingTime(0);
+    setPaused(false);
+    setMicMuted(false);
+    pausedTimeRef.current = 0;
+    pauseStartTimeRef.current = null;
+    
     try {
       // Всегда режим both: микрофон + вкладка
       const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -98,13 +168,26 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
       
       streamsRef.current = { mic: micStream, tab: tabStream };
 
+      // Создаем аудио контекст и сохраняем его в ref
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioContextRef.current = audioCtx;
+      
       const dest = audioCtx.createMediaStreamDestination();
 
+      // Создаем источники для микрофона и вкладки
       const micSource = audioCtx.createMediaStreamSource(micStream);
       const tabSource = audioCtx.createMediaStreamSource(tabStream);
 
-      micSource.connect(dest);
+      // Создаем узел усиления для микрофона
+      const micGainNode = audioCtx.createGain();
+      micGainNodeRef.current = micGainNode;
+      micGainNode.gain.value = 1; // Начальное значение (микрофон включен)
+
+      // Подключаем микрофон через узел усиления
+      micSource.connect(micGainNode);
+      micGainNode.connect(dest);
+      
+      // Подключаем вкладку напрямую
       tabSource.connect(dest);
 
       const finalStream = dest.stream;
@@ -132,6 +215,15 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
         startTimeRef.current = Date.now();
         setRecording(true);
         setPreparing(false); // Подготовка завершена
+      };
+      
+      // Обработчики паузы и возобновления
+      mediaRecorder.onpause = () => {
+        setPaused(true);
+      };
+      
+      mediaRecorder.onresume = () => {
+        setPaused(false);
       };
       
       mediaRecorder.onstop = async () => {
@@ -166,12 +258,21 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
         const file = new File([mp3Blob], "recording.mp3", { type: "audio/mp3" });
         onAudioReady(file, mp3Url);
         setRecording(false);
+        setPaused(false);
+        setMicMuted(false);
         setPreparing(false);
 
         // Чистим webmUrl
         if (webmUrl) {
           URL.revokeObjectURL(webmUrl);
           setWebmUrl(null);
+        }
+        
+        // Закрываем аудио контекст
+        if (audioContextRef.current) {
+          audioContextRef.current.close().catch(console.error);
+          audioContextRef.current = null;
+          micGainNodeRef.current = null;
         }
       };
 
@@ -180,6 +281,8 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
     } catch (e) {
       setError("Error accessing audio: " + e.message);
       setRecording(false);
+      setPaused(false);
+      setMicMuted(false);
       setPreparing(false);
     }
   };

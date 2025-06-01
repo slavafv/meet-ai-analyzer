@@ -43,9 +43,11 @@ export default function App() {
   const [recordTimestamp, setRecordTimestamp] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [isRecordedAudio, setIsRecordedAudio] = useState(false); // Track if audio was recorded or uploaded
+  const [isMicMuted, setIsMicMuted] = useState(false); // Состояние отключения микрофона
   const audioRecorderRef = useRef(null);
   const timerRef = useRef(null);
 
@@ -147,6 +149,12 @@ export default function App() {
     }
   };
 
+  const handleRecordingChange = (recording, paused, micMuted) => {
+    setIsRecording(recording);
+    setIsPaused(paused);
+    setIsMicMuted(micMuted);
+  };
+
   const handleRecordClick = () => {
     if (isRecording || isPreparing) {
       // Stop recording напрямую через ref
@@ -165,9 +173,27 @@ export default function App() {
     }
   };
 
+  const handlePauseClick = () => {
+    if (audioRecorderRef.current && isRecording && !isPaused) {
+      audioRecorderRef.current.pauseRecording();
+    }
+  };
+
+  const handleResumeClick = () => {
+    if (audioRecorderRef.current && isRecording && isPaused) {
+      audioRecorderRef.current.resumeRecording();
+    }
+  };
+
   const handleUploadClick = () => {
     const uploadInput = document.querySelector('#upload-button input');
     if (uploadInput) uploadInput.click();
+  };
+
+  const handleMicMuteClick = () => {
+    if (audioRecorderRef.current && isRecording) {
+      audioRecorderRef.current.toggleMicMute();
+    }
   };
 
   const handleTranscribe = async () => {
@@ -239,7 +265,12 @@ export default function App() {
         <AudioControls 
           isRecording={isRecording}
           isPreparing={isPreparing}
+          isPaused={isPaused}
+          isMicMuted={isMicMuted}
           onRecordClick={handleRecordClick}
+          onPauseClick={handlePauseClick}
+          onResumeClick={handleResumeClick}
+          onMicMuteClick={handleMicMuteClick}
           onUploadClick={handleUploadClick}
           recordingTime={recordingTime}
         />
@@ -248,7 +279,7 @@ export default function App() {
           <AudioRecorder
             id="record-button"
             ref={audioRecorderRef}
-            onRecordingChange={(recording) => setIsRecording(recording)}
+            onRecordingChange={handleRecordingChange}
             onAudioReady={(file, url) => {
               const timestamp = Date.now();
               setAudioFile(file);

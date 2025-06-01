@@ -13,7 +13,12 @@
     "recording": "Запись: {{time}}",
     "stopRecording": "Остановить запись ({{time}})",
     "preparingRecord": "Выберите вкладку для записи...",
-    "upload": "Выбрать аудиофайл"
+    "upload": "Выбрать аудиофайл",
+    "pauseRecording": "Приостановить запись",
+    "resumeRecording": "Продолжить запись",
+    "pausedRecording": "Пауза: {{time}}",
+    "muteMic": "Отключить микрофон",
+    "unmuteMic": "Включить микрофон"
   },
   "transcription": {
     "title": "Полная транскрипция",
