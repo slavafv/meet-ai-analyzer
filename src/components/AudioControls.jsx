@@ -82,53 +82,88 @@ export default function AudioControls({
   };
 
   return (
-    <Grid container spacing={2} justifyContent="center" sx={{ mb: 3 }}>
-      <Grid item xs={12} md={isRecording || isPreparing ? 12 : 6}>
-        <Button 
-          fullWidth
-          variant={isRecording || isPreparing ? "contained" : "outlined"}
-          size="large"
-          startIcon={isRecording || isPreparing ? null : <MicIcon />}
-          color={isRecording ? "error" : isPreparing ? "warning" : "primary"}
-          onClick={onRecordClick}
+    <Box 
+      sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        mb: 3 
+      }}
+    >
+      <Box 
+        sx={{ 
+          maxWidth: '700px', 
+          width: '100%',
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2,
+          justifyContent: 'center'
+        }}
+      >
+        <Box 
           sx={{ 
-            p: 2, 
-            borderRadius: 1,
-            textTransform: 'none',
-            fontSize: '1rem',
-            color: isRecording || isPreparing ? '#fff' : 'text.primary',
-            borderColor: isRecording ? '#f44336' : isPreparing ? '#ed6c02' : 'divider',
-            backgroundColor: isRecording ? '#f44336' : isPreparing ? '#ed6c02' : 'transparent',
-            '&:hover': {
-              backgroundColor: isRecording ? '#d32f2f' : isPreparing ? '#e65100' : 'transparent',
-              borderColor: isRecording ? '#d32f2f' : isPreparing ? '#e65100' : 'divider',
-            }
+            flex: isRecording || isPreparing ? { xs: 1, sm: '0 0 auto' } : '0 0 auto',
+            width: isRecording || isPreparing ? { xs: '100%', sm: 'auto' } : { xs: '100%', sm: 'auto' },
+            minWidth: { sm: '220px' },
+            margin: (isRecording || isPreparing) ? '0 auto' : 'initial'
           }}
         >
-          {getButtonContent()}
-        </Button>
-      </Grid>
-      {!isRecording && !isPreparing && (
-        <Grid item xs={12} md={6}>
           <Button 
             fullWidth
-            variant="outlined"
+            variant={isRecording || isPreparing ? "contained" : "outlined"}
             size="large"
-            startIcon={<UploadFileIcon />}
-            onClick={onUploadClick}
+            startIcon={isRecording || isPreparing ? null : <MicIcon />}
+            color={isRecording ? "error" : isPreparing ? "warning" : "primary"}
+            onClick={onRecordClick}
             sx={{ 
               p: 2, 
               borderRadius: 1,
               textTransform: 'none',
               fontSize: '1rem',
-              color: 'text.primary',
-              borderColor: 'divider'
+              color: isRecording || isPreparing ? '#fff' : 'text.primary',
+              borderColor: isRecording ? '#f44336' : isPreparing ? '#ed6c02' : 'divider',
+              backgroundColor: isRecording ? '#f44336' : isPreparing ? '#ed6c02' : 'transparent',
+              '&:hover': {
+                backgroundColor: isRecording ? '#d32f2f' : isPreparing ? '#e65100' : 'rgba(99, 102, 241, 0.04)',
+                borderColor: isRecording ? '#d32f2f' : isPreparing ? '#e65100' : 'primary.main',
+              }
             }}
           >
-            {t('controls.upload')}
+            {getButtonContent()}
           </Button>
-        </Grid>
-      )}
-    </Grid>
+        </Box>
+        
+        {!isRecording && !isPreparing && (
+          <Box 
+            sx={{ 
+              flex: '0 0 auto',
+              width: { xs: '100%', sm: 'auto' },
+              minWidth: { sm: '220px' }
+            }}
+          >
+            <Button 
+              fullWidth
+              variant="outlined"
+              size="large"
+              startIcon={<UploadFileIcon />}
+              onClick={onUploadClick}
+              sx={{ 
+                p: 2, 
+                borderRadius: 1,
+                textTransform: 'none',
+                fontSize: '1rem',
+                color: 'text.primary',
+                borderColor: 'divider',
+                '&:hover': {
+                  backgroundColor: 'rgba(99, 102, 241, 0.04)',
+                  borderColor: 'primary.main',
+                }
+              }}
+            >
+              {t('controls.upload')}
+            </Button>
+          </Box>
+        )}
+      </Box>
+    </Box>
   );
 } 

@@ -26,7 +26,7 @@
     "error": "Error: {{message}}"
   },
   "summaryOptions": {
-    "language": "Language",
+    "language": "Language for recognition",
     "russian": "Russian",
     "english": "English",
     "summaryType": "Summary Type",
@@ -52,9 +52,13 @@
     "cancel": "Cancel",
     "confirm": "Confirm"
   },
-  "settings": {
-    "title": "Settings",
-    "language": "Interface Language",
-    "theme": "Theme"
+  "copy": {
+    "transcript": "Transcript copied to clipboard",
+    "summary": "Summary copied to clipboard"
+  },
+  "loading": {
+    "player": "Loading audio player...",
+    "options": "Loading options...",
+    "results": "Loading results..."
   }
 }

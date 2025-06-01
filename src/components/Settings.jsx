@@ -1,12 +1,9 @@
 import React from 'react';
-import { Box, Paper, Typography, Divider } from '@mui/material';
+import { Box, Paper, Divider } from '@mui/material';
 import ThemeToggle from './ThemeToggle';
 import LanguageToggle from './LanguageToggle';
-import { useTranslation } from 'react-i18next';
 
 export default function Settings() {
-  const { t } = useTranslation();
-
   return (
     <Paper 
       elevation={0} 
@@ -26,11 +23,8 @@ export default function Settings() {
       <Box sx={{ 
         display: 'flex', 
         alignItems: 'center', 
-        gap: 2,
-        width: { xs: '100%', sm: '210px' }, // Fixed width to prevent jumping
-        justifyContent: 'flex-end' 
+        justifyContent: 'center'
       }}>
-        <Typography variant="body2" sx={{ flexShrink: 0 }}>{t('settings.language')}:</Typography>
         <LanguageToggle />
       </Box>
       
@@ -40,11 +34,8 @@ export default function Settings() {
       <Box sx={{ 
         display: 'flex', 
         alignItems: 'center', 
-        gap: 2,
-        width: { xs: '100%', sm: '210px' }, // Fixed width to prevent jumping
-        justifyContent: 'flex-end'
+        justifyContent: 'center'
       }}>
-        <Typography variant="body2" sx={{ flexShrink: 0 }}>{t('settings.theme')}:</Typography>
         <ThemeToggle />
       </Box>
     </Paper>
