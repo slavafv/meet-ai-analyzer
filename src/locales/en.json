@@ -20,7 +20,9 @@
     "resumeRecording": "Resume Recording",
     "pausedRecording": "Paused: {{time}}",
     "muteMic": "Mute Microphone",
-    "unmuteMic": "Unmute Microphone"
+    "unmuteMic": "Unmute Microphone",
+    "converting": "Processing Audio",
+    "convertingProgress": "Progress: {{progress}}%"
   },
   "transcription": {
     "title": "Full Transcription",

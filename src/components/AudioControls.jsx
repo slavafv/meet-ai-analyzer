@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Grid, Button, Box, keyframes, CircularProgress, IconButton } from "@mui/material";
+import { Grid, Button, Box, keyframes, CircularProgress, IconButton, LinearProgress, Typography } from "@mui/material";
 import MicIcon from "@mui/icons-material/Mic";
 import MicOffIcon from "@mui/icons-material/MicOff";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import PauseIcon from "@mui/icons-material/Pause";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import SaveIcon from '@mui/icons-material/Save';
 import { useTranslation } from "react-i18next";
 
 // Анимация пульсации для индикатора записи
@@ -27,6 +28,8 @@ export default function AudioControls({
   isPaused = false,
   isMicMuted = false,
   isMobileDevice = false,
+  isConverting = false,
+  conversionProgress = 0,
   onRecordClick, 
   onUploadClick,
   onPauseClick,
@@ -89,6 +92,55 @@ export default function AudioControls({
     
     return t('controls.record');
   };
+
+  // Отображение прогресса конвертации
+  if (isConverting) {
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center', 
+          mb: 3,
+          width: '100%',
+          maxWidth: '700px',
+          mx: 'auto',
+          p: 3,
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 2,
+          bgcolor: 'background.paper',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, width: '100%' }}>
+          <SaveIcon sx={{ mr: 2, color: 'primary.main' }} />
+          <Typography variant="h6" component="div">
+            {t('controls.converting')}
+          </Typography>
+        </Box>
+        
+        <Box sx={{ width: '100%', mb: 1 }}>
+          <LinearProgress 
+            variant="determinate" 
+            value={conversionProgress} 
+            sx={{ 
+              height: 10, 
+              borderRadius: 5,
+              backgroundColor: 'rgba(99, 102, 241, 0.1)',
+              '& .MuiLinearProgress-bar': {
+                backgroundColor: 'primary.main',
+              }
+            }} 
+          />
+        </Box>
+        
+        <Typography variant="body2" color="text.secondary">
+          {t('controls.convertingProgress', { progress: conversionProgress })}
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box 

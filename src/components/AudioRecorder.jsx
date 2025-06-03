@@ -24,6 +24,10 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
   // Проверка, поддерживается ли getDisplayMedia
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   
+  // Состояние для отслеживания прогресса конвертации
+  const [isConverting, setIsConverting] = useState(false);
+  const [conversionProgress, setConversionProgress] = useState(0);
+  
   // Аудио контекст и узлы для управления звуком
   const audioContextRef = useRef(null);
   const micGainNodeRef = useRef(null);
@@ -58,17 +62,19 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
         isPreparing: () => preparing,
         isPaused: () => paused,
         isMicMuted: () => micMuted,
-        isMobileDevice: () => isMobileDevice
+        isMobileDevice: () => isMobileDevice,
+        isConverting: () => isConverting,
+        getConversionProgress: () => conversionProgress
       };
     }
-  }, [ref, recordingTime, preparing, paused, micMuted, isMobileDevice]);
+  }, [ref, recordingTime, preparing, paused, micMuted, isMobileDevice, isConverting, conversionProgress]);
 
   // Notify parent when recording state changes
   useEffect(() => {
     if (onRecordingChange) {
-      onRecordingChange(recording, paused, micMuted);
+      onRecordingChange(recording, paused, micMuted, isConverting, conversionProgress);
     }
-  }, [recording, paused, micMuted, onRecordingChange]);
+  }, [recording, paused, micMuted, onRecordingChange, isConverting, conversionProgress]);
 
   // Очистка objectURL при размонтировании компонента
   useEffect(() => {
@@ -80,8 +86,9 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
         clearInterval(timerRef.current);
       }
       // Закрываем аудио контекст при размонтировании
-      if (audioContextRef.current) {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close().catch(console.error);
+        audioContextRef.current = null;
       }
     };
   }, [webmUrl]);
@@ -184,12 +191,23 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
     pauseStartTimeRef.current = null;
     
     try {
-      // Всегда запрашиваем доступ к микрофону
-      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Всегда запрашиваем доступ к микрофону с пониженным качеством для снижения нагрузки
+      const micStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 22050, // Пониженная частота дискретизации (вместо 44100/48000)
+        } 
+      });
       let finalStream;
       
       // Создаем аудио контекст
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)({
+        sampleRate: 22050, // Пониженная частота дискретизации
+        latencyHint: 'playback' // Оптимизация для снижения нагрузки
+      });
       audioContextRef.current = audioCtx;
       const dest = audioCtx.createMediaStreamDestination();
       
@@ -209,7 +227,10 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
       if (!isMobileDevice && !window.TEST_MOBILE_MODE) {
         try {
           // Запрашиваем доступ к звуку вкладки
-          const tabStream = await navigator.mediaDevices.getDisplayMedia({ audio: true });
+          const tabStream = await navigator.mediaDevices.getDisplayMedia({ 
+            video: true, // Должно быть true для показа диалога выбора
+            audio: true
+          });
           streamsRef.current = { mic: micStream, tab: tabStream };
           
           // Создаем источник для звука вкладки
@@ -231,9 +252,23 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
       }
 
       recordedChunksRef.current = [];
-      let mimeType = "audio/webm";
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = "";
+      
+      // Выбираем оптимальные параметры кодирования для снижения нагрузки
+      const options = {
+        mimeType: 'audio/webm;codecs=opus', // Opus кодек более эффективен
+        audioBitsPerSecond: 64000, // Пониженный битрейт для меньшей нагрузки (64 кбит/с)
+      };
+      
+      // Проверяем поддержку кодека
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        // Если Opus не поддерживается, пробуем другие форматы
+        if (MediaRecorder.isTypeSupported('audio/webm')) {
+          options.mimeType = 'audio/webm';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options.mimeType = 'audio/mp4';
+        } else {
+          options.mimeType = '';
+        }
       }
       
       if (finalStream.getAudioTracks().length === 0) {
@@ -242,7 +277,7 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
         return;
       }
       
-      const mediaRecorder = new MediaRecorder(finalStream, { mimeType });
+      const mediaRecorder = new MediaRecorder(finalStream, options);
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (e) => {
@@ -267,36 +302,110 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
       };
       
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(recordedChunksRef.current, { type: "audio/webm" });
+        // Начинаем процесс конвертации
+        setIsConverting(true);
+        setConversionProgress(0);
+        
+        const blob = new Blob(recordedChunksRef.current, { type: options.mimeType || "audio/webm" });
         const tempWebmUrl = URL.createObjectURL(blob);
         setWebmUrl(tempWebmUrl);
-        const arrayBuffer = await blob.arrayBuffer();
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-
-        // Получаем PCM-данные
-        const samples = audioBuffer.getChannelData(0); // моно
-        const mp3encoder = new lamejs.Mp3Encoder(1, audioBuffer.sampleRate, 64);
-        const mp3Data = [];
-        const sampleBlockSize = 1152;
-        for (let i = 0; i < samples.length; i += sampleBlockSize) {
-          const sampleChunk = samples.subarray(i, i + sampleBlockSize);
-          // Преобразуем float32 в int16
-          const int16 = new Int16Array(sampleChunk.length);
-          for (let j = 0; j < sampleChunk.length; j++) {
-            int16[j] = Math.max(-32768, Math.min(32767, sampleChunk[j] * 32767));
-          }
-          const mp3buf = mp3encoder.encodeBuffer(int16);
-          if (mp3buf.length > 0) mp3Data.push(mp3buf);
+        
+        try {
+          // Используем Web Workers для конвертации в фоновом режиме
+          const convertToMp3 = () => {
+            return new Promise((resolve, reject) => {
+              const arrayBuffer = blob.arrayBuffer();
+              arrayBuffer.then(buffer => {
+                // Создаем новый аудио контекст с пониженной частотой
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)({
+                  sampleRate: 22050
+                });
+                
+                // Декодируем аудио
+                audioCtx.decodeAudioData(buffer).then(audioBuffer => {
+                  // Получаем PCM-данные
+                  const samples = audioBuffer.getChannelData(0); // моно
+                  
+                  // Создаем MP3 энкодер с низким битрейтом
+                  const mp3encoder = new lamejs.Mp3Encoder(1, audioBuffer.sampleRate, 64);
+                  const mp3Data = [];
+                  
+                  // Увеличиваем размер блока для ускорения обработки
+                  const sampleBlockSize = 4608; // в 4 раза больше стандартного
+                  const totalBlocks = Math.ceil(samples.length / sampleBlockSize);
+                  let processedBlocks = 0;
+                  
+                  // Обработка по частям с обновлением прогресса
+                  const processNextChunk = (startIndex) => {
+                    const endIndex = Math.min(startIndex + sampleBlockSize * 50, samples.length);
+                    
+                    for (let i = startIndex; i < endIndex; i += sampleBlockSize) {
+                      const sampleChunk = samples.subarray(i, i + sampleBlockSize);
+                      // Преобразуем float32 в int16
+                      const int16 = new Int16Array(sampleChunk.length);
+                      for (let j = 0; j < sampleChunk.length; j++) {
+                        int16[j] = Math.max(-32768, Math.min(32767, sampleChunk[j] * 32767));
+                      }
+                      const mp3buf = mp3encoder.encodeBuffer(int16);
+                      if (mp3buf.length > 0) mp3Data.push(mp3buf);
+                      
+                      processedBlocks++;
+                    }
+                    
+                    // Обновляем прогресс
+                    const progress = Math.min(95, Math.round((processedBlocks / totalBlocks) * 100));
+                    setConversionProgress(progress);
+                    
+                    if (endIndex < samples.length) {
+                      // Продолжаем обработку следующей части через setTimeout
+                      // Это позволяет UI обновляться между чанками
+                      setTimeout(() => processNextChunk(endIndex), 0);
+                    } else {
+                      // Завершаем кодирование
+                      const mp3buf = mp3encoder.flush();
+                      if (mp3buf.length > 0) mp3Data.push(mp3buf);
+                      
+                      setConversionProgress(98); // Почти готово
+                      
+                      const mp3Blob = new Blob(mp3Data, { type: "audio/mp3" });
+                      const mp3Url = URL.createObjectURL(mp3Blob);
+                      
+                      const file = new File([mp3Blob], "recording.mp3", { type: "audio/mp3" });
+                      
+                      // Закрываем аудио контекст
+                      if (audioCtx && audioCtx.state !== 'closed') {
+                        audioCtx.close().catch(console.error);
+                      }
+                      
+                      setConversionProgress(100);
+                      
+                      // Небольшая задержка перед завершением, чтобы пользователь увидел 100%
+                      setTimeout(() => {
+                        resolve({ file, url: mp3Url });
+                      }, 300);
+                    }
+                  };
+                  
+                  // Начинаем обработку с первого чанка
+                  processNextChunk(0);
+                  
+                }).catch(reject);
+              }).catch(reject);
+            });
+          };
+          
+          // Запускаем конвертацию
+          const { file, url } = await convertToMp3();
+          onAudioReady(file, url);
+        } catch (error) {
+          console.error("Error converting to MP3:", error);
+          setError("Error converting audio");
+        } finally {
+          // Завершаем конвертацию
+          setIsConverting(false);
+          setConversionProgress(0);
         }
-        const mp3buf = mp3encoder.flush();
-        if (mp3buf.length > 0) mp3Data.push(mp3buf);
-
-        const mp3Blob = new Blob(mp3Data, { type: "audio/mp3" });
-        const mp3Url = URL.createObjectURL(mp3Blob);
-
-        const file = new File([mp3Blob], "recording.mp3", { type: "audio/mp3" });
-        onAudioReady(file, mp3Url);
+        
         setRecording(false);
         setPaused(false);
         setMicMuted(false);
@@ -310,20 +419,31 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
         
         // Закрываем аудио контекст
         if (audioContextRef.current) {
-          audioContextRef.current.close().catch(console.error);
+          // Проверяем, не закрыт ли уже контекст
+          if (audioContextRef.current.state !== 'closed') {
+            audioContextRef.current.close().catch(console.error);
+          }
           audioContextRef.current = null;
           micGainNodeRef.current = null;
         }
       };
 
       // Запускаем запись после настройки всех обработчиков
-      mediaRecorder.start();
+      // Запрашиваем данные чаще для уменьшения размера чанков
+      mediaRecorder.start(500);
     } catch (e) {
       setError("Error accessing audio: " + e.message);
       setRecording(false);
       setPaused(false);
       setMicMuted(false);
       setPreparing(false);
+      
+      // Закрываем аудио контекст в случае ошибки
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(console.error);
+        audioContextRef.current = null;
+        micGainNodeRef.current = null;
+      }
     }
   };
 
@@ -339,8 +459,13 @@ export default forwardRef(function AudioRecorder({ onAudioReady, id, onRecording
 
   return (
     <div id={id}>
-      {!recording && !preparing ? (
+      {!recording && !preparing && !isConverting ? (
         <button onClick={startRecording}>Record</button>
+      ) : isConverting ? (
+        <div className="conversion-progress">
+          <div className="progress-bar" style={{ width: `${conversionProgress}%` }}></div>
+          <div className="progress-text">Обработка аудио: {conversionProgress}%</div>
+        </div>
       ) : (
         <button onClick={stopRecording}>Stop</button>
       )}

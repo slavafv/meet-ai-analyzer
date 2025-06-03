@@ -43,17 +43,19 @@ export default function App() {
   const [recordTimestamp, setRecordTimestamp] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
+  const [conversionProgress, setConversionProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [isRecordedAudio, setIsRecordedAudio] = useState(false); // Track if audio was recorded or uploaded
-  const [isMicMuted, setIsMicMuted] = useState(false); // Состояние отключения микрофона
-  const [isMobileDevice, setIsMobileDevice] = useState(false); // Определение мобильного устройства
-  const [scrollTarget, setScrollTarget] = useState('transcript'); // Цель для автоскролла
-  const [shouldScrollToTranscribe, setShouldScrollToTranscribe] = useState(false); // Флаг для скролла к кнопке транскрибирования
+  const [isRecordedAudio, setIsRecordedAudio] = useState(false);
+  const [isMicMuted, setIsMicMuted] = useState(false);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  const [scrollTarget, setScrollTarget] = useState(null);
+  const [shouldScrollToTranscribe, setShouldScrollToTranscribe] = useState(false);
   const audioRecorderRef = useRef(null);
   const timerRef = useRef(null);
-  const transcribeButtonRef = useRef(null); // Ref для кнопки транскрибирования
+  const transcribeButtonRef = useRef(null);
 
   // Загрузка сохраненных настроек
   useEffect(() => {
@@ -128,13 +130,13 @@ export default function App() {
 
   // Эффект для автоскролла к кнопке транскрибирования
   useEffect(() => {
-    if (shouldScrollToTranscribe && !isRecording && audioFile && transcribeButtonRef.current) {
+    if (shouldScrollToTranscribe && !isRecording && !isConverting && audioFile && transcribeButtonRef.current) {
       setTimeout(() => {
         transcribeButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setShouldScrollToTranscribe(false); // Сбрасываем флаг после скролла
       }, 300);
     }
-  }, [shouldScrollToTranscribe, isRecording, audioFile]);
+  }, [shouldScrollToTranscribe, isRecording, isConverting, audioFile]);
 
   // Имя для скачивания аудио
   const getDownloadName = () => getTimestampedName("record", "mp3", recordTimestamp);
@@ -168,15 +170,17 @@ export default function App() {
     }
   };
 
-  const handleRecordingChange = (recording, paused, micMuted) => {
+  const handleRecordingChange = (recording, paused, micMuted, converting, progress) => {
     // Если запись была остановлена, устанавливаем флаг для скролла
-    if (isRecording && !recording) {
+    if (isRecording && !recording && !converting) {
       setShouldScrollToTranscribe(true);
     }
     
     setIsRecording(recording);
     setIsPaused(paused);
     setIsMicMuted(micMuted);
+    setIsConverting(converting);
+    setConversionProgress(progress);
   };
 
   const handleRecordClick = () => {
@@ -308,6 +312,8 @@ export default function App() {
           isPaused={isPaused}
           isMicMuted={isMicMuted}
           isMobileDevice={isMobileDevice}
+          isConverting={isConverting}
+          conversionProgress={conversionProgress}
           onRecordClick={handleRecordClick}
           onPauseClick={handlePauseClick}
           onResumeClick={handleResumeClick}

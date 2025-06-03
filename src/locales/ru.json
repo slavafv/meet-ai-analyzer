@@ -20,7 +20,9 @@
     "resumeRecording": "Продолжить запись",
     "pausedRecording": "Пауза: {{time}}",
     "muteMic": "Отключить микрофон",
-    "unmuteMic": "Включить микрофон"
+    "unmuteMic": "Включить микрофон",
+    "converting": "Обработка аудио",
+    "convertingProgress": "Прогресс: {{progress}}%"
   },
   "transcription": {
     "title": "Полная транскрипция",
