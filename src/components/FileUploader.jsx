@@ -11,7 +11,11 @@ export default function FileUploader({ onFileSelected, id }) {
   
   return (
     <div id={id}>
-      <input type="file" accept="audio/*" onChange={handleChange} />
+      <input 
+        type="file" 
+        accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.webm,audio/mp3,audio/m4a,audio/aac,audio/wav,audio/flac,audio/ogg,audio/webm" 
+        onChange={handleChange} 
+      />
     </div>
   );
 }
